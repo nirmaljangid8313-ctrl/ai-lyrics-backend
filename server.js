@@ -174,8 +174,25 @@ const suggestions = text
         });
     }
 });
-const PORT = 3000;
+app.post("/improve-lyrics", async (req, res) => {
+const { selectedText, lyrics, language } = req.body;
+try {
 
+const response = await openai.chat.completions.create({
+    model: "openai/gpt-oss-120b",
+    messages: [
+        { role: "system", content: "You are an expert professional songwriter and lyric editor." },
+        { role: "user", content: `Improve ONLY the selected lyric text while preserving its original meaning, emotion, language, rhyme, rhythm, and song context. Return only the improved replacement text, with no explanation. Language: ${language}. Selected text: ${selectedText}. Full lyrics for context: ${lyrics}` }
+        ],
+    });
+    const improvedText = response.choices[0].message.content.trim();
+    res.json({ improvedText });
+    } catch (error) {
+  console.error("Improve lyrics error:", error);
+  res.status(500).json({ error: "Failed to improve lyrics" });
+}
+});
+const PORT = 3000;
 app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
 });
