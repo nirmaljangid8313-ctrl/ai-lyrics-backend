@@ -54,7 +54,7 @@ app.post("/suggest-words", async (req, res) => {
                 {
                     role: "user",
                     content: `
-You are helping edit song lyrics.
+You are an expert song lyric editor.
 
 Language: ${language}
 Word to replace: "${word}"
@@ -62,20 +62,31 @@ Word to replace: "${word}"
 Full lyrics:
 ${lyrics}
 
-Suggest exactly 8 alternative words or very short phrases that could replace "${word}" in these lyrics.
+Generate exactly 15 context-aware replacement words or very short phrases for "${word}".
 
-The suggestions should:
-- fit the meaning and context
-- sound natural in a song
-- consider rhyme and lyrical flow
-- preserve the mood where possible
-- use the same language/style as the lyrics
-- if the language is Hindi, return Hindi words written in English letters
-- if Punjabi or Haryanvi is written in English letters, keep that same Roman-script style
+IMPORTANT:
+Each suggestion must be something that can naturally replace "${word}" at its existing location in the lyrics.
 
-Return ONLY the 8 suggestions, one per line.
-Do not number them.
-Do not add explanations.
+Before suggesting a replacement, understand the complete lyric sentence or line containing "${word}", as well as the surrounding lyrics.
+
+Every suggestion must:
+- fit naturally into the existing lyric sentence or line
+- preserve the intended meaning where possible
+- be grammatically correct in that exact position
+- match the emotional mood and context of the song
+- consider rhyme, rhythm, syllable flow, and singability
+- match the selected language and the language/style actually used in the lyrics
+- avoid random dictionary synonyms that do not fit the sentence
+- avoid duplicate or nearly identical suggestions
+- be concise enough to replace the original word naturally
+- if the language is Hindi, use Hindi words written only in Roman/English letters, never Devanagari
+- if Punjabi or Haryanvi is written in English letters, keep the same Roman-script style
+
+Return exactly 15 suggestions.
+Return one suggestion per line.
+Do not number the suggestions.
+Do not use bullets.
+Do not add explanations, headings, quotation marks, or any other text.
 `
                 }
             ]
@@ -87,7 +98,7 @@ Do not add explanations.
             .split("\n")
             .map(item => item.trim())
             .filter(item => item.length > 0)
-            .slice(0, 8);
+            .slice(0, 15);
 
         res.json({ suggestions });
 
