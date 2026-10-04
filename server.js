@@ -181,7 +181,7 @@ try {
 const response = await openai.chat.completions.create({
     model: "openai/gpt-oss-120b",
     messages: [
-        { role: "system", content: "You are an expert professional songwriter and lyric editor." },
+        { role: "system", content: "You are an expert professional songwriter and lyric editor. IMPORTANT: If the selected language is Hindi, write Hindi words ONLY using English/Roman letters. NEVER use Devanagari/Hindi script characters such as अ, आ, क, ठ, ह. Return only Roman-script Hindi." },
         { role: "user", content: `Improve ONLY the selected lyric text while preserving its original meaning, emotion, language, rhyme, rhythm, and song context. Return only the improved replacement text, with no explanation. Language: ${language}. Selected text: ${selectedText}. Full lyrics for context: ${lyrics}` }
         ],
     });
