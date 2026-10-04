@@ -63,82 +63,84 @@ Full lyrics:
 ${lyrics}
 
 TASK:
-Generate exactly 15 natural replacement words or very short phrases for "${word}".
+Generate high-quality replacement words or very short phrases for "${word}" that can be inserted directly into its exact position in the lyrics.
 
-STEP 1 — FIND THE EXACT CONTEXT:
-First locate the exact occurrence of "${word}" in the full lyrics.
-Identify the complete lyric line containing it.
-Understand what "${word}" means specifically in that line, its grammatical role, emotional purpose, and relationship with the surrounding words.
+STEP 1 — LOCATE THE WORD:
+Find the exact occurrence of "${word}" in the full lyrics and identify the complete lyric line containing it.
 
 If "${word}" does not appear anywhere in the lyrics, return exactly:
 WORD_NOT_FOUND
 
-STEP 2 — TEST EVERY CANDIDATE:
-For every candidate, mentally substitute it directly into the exact original line in place of "${word}".
-STRICT DIRECT-REPLACEMENT TEST:
-Do not judge the candidate by itself. Judge ONLY the complete lyric line after substitution.
+STEP 2 — UNDERSTAND THE ORIGINAL LINE:
+Understand:
+- the exact meaning of "${word}" in this line
+- its grammatical role
+- the words immediately before and after it
+- the emotion of the line
+- the rhythm and natural lyrical phrasing
 
-For each candidate, internally construct:
-ORIGINAL LINE: the exact line from the lyrics
-TEST LINE: the same exact line with only "${word}" replaced by the candidate
+STEP 3 — GENERATE CANDIDATES:
+Create a broad internal pool of possible replacements.
 
-Compare the TEST LINE with the ORIGINAL LINE.
+Do not output this pool yet.
 
-Reject the candidate if:
-- the TEST LINE would require changing, adding, removing, or rearranging any other word to sound correct
-- the candidate does not grammatically connect with the words immediately before and after it
-- the candidate changes the sentence structure
-- the candidate is merely related in meaning but is not interchangeable in this exact sentence
-- a fluent native speaker would find the complete TEST LINE unnatural
+STEP 4 — BUILD AND TEST THE COMPLETE LINE:
+For every candidate, internally create a complete TEST LINE by replacing only "${word}" with that candidate.
 
-The candidate must work while EVERY OTHER WORD in the original lyric line remains exactly unchanged.
-Reject the candidate unless the complete resulting lyric line:
-- sounds natural when spoken or sung
-- is grammatically correct
-- makes clear sense
-- preserves the original meaning or emotional intention as closely as possible
-- uses the same grammatical role as the original word
-- fits naturally with the words immediately before and after it
-- suits the song's mood
-- has reasonable rhythm, syllable flow, and singability
+Every other word in the original lyric line must remain exactly unchanged.
 
-CRITICAL QUALITY RULES:
-Do NOT return words merely because they are synonyms, related words, or connected to the general theme of the song.
-Do NOT return formal dictionary or literary vocabulary when a normal songwriter would naturally use a simpler word.
-Do NOT return awkward translations.
-Do NOT return a candidate just to reach 15 suggestions.
-Prefer natural, commonly used lyrical language over rare, technical, overly formal, or unnatural vocabulary.
-Each suggestion must work as a DIRECT replacement at the exact position of "${word}".
+Example process:
+Original line: [exact original lyric line]
+Candidate: [candidate]
+Test line: [original line with only the target word replaced]
+
+Now judge the COMPLETE TEST LINE, not the candidate by itself.
+
+Reject the candidate immediately if:
+- the complete test line sounds unnatural
+- grammar becomes incorrect
+- another word would need to be added, removed, changed, or rearranged
+- the candidate does not connect naturally with the words immediately before and after it
+- the candidate changes the grammatical structure
+- the candidate substantially changes the intended meaning
+- the candidate is only thematically related rather than directly interchangeable
+- the resulting line sounds awkward when spoken or sung
+- the candidate creates redundant wording or duplicated meaning with nearby words
+
+STEP 5 — NATIVE SONGWRITER TEST:
+For every surviving candidate, ask:
+
+"Would a fluent native songwriter naturally write and sing the COMPLETE TEST LINE exactly this way, without changing any other word?"
+
+Keep the candidate only if the answer is clearly YES.
 
 For Hindi:
-- use natural conversational/song Hindi
-- write only in Roman/English letters
+- use natural modern Hindi song/conversational vocabulary
+- write Hindi only in Roman/English letters
 - never use Devanagari
-- prefer words commonly heard in modern Hindi songs
-- avoid overly Sanskritized/formal words such as "apoorn", "asampurn", or "sunya" when natural alternatives exist
+- avoid unnecessarily formal, Sanskritized, dictionary-like, or unnatural vocabulary
+- reject constructions that duplicate nearby grammar, for example a "bina..." replacement immediately after an existing "bin"
 
 For Punjabi or Haryanvi written in Roman letters:
-- keep the same Roman-script style
-- use natural song/conversational vocabulary
+- keep Roman script
+- use natural conversational/song vocabulary
 
-FINAL SELF-CHECK:
-STRICT FINAL VALIDATION:
-For every remaining suggestion, insert it into the exact original lyric line one final time.
+STEP 6 — RANK THE SURVIVORS:
+Rank valid candidates by:
+1. grammatical fit in the exact original line
+2. naturalness to a fluent native speaker
+3. preservation of the original meaning/emotion
+4. lyrical flow and singability
+5. rhyme and rhythm
 
-The replacement must work with absolutely no other changes to that line.
+Return the best 15 only if 15 candidates genuinely pass all tests.
+If fewer than 15 candidates genuinely pass, return fewer than 15.
+Never include a weak candidate merely to reach 15.
 
-Ask: "Would a fluent native speaker/songwriter naturally write and sing this complete line exactly this way?"
-
-If the answer is not clearly YES, reject the suggestion.
-
-Never sacrifice sentence correctness or naturalness just to produce more suggestions.
-Before returning each suggestion, read the original lyric line again with that suggestion inserted.
-If the resulting line sounds strange, unnatural, grammatically wrong, overly formal, or substantially changes the intended meaning, reject it.
-
-Return exactly 15 high-quality suggestions if 15 genuinely suitable replacements exist.
-If fewer than 15 genuinely natural replacements exist, return only the genuinely suitable ones. Quality is more important than forcing 15 poor suggestions.
-
-Return one suggestion per line.
+OUTPUT RULES:
+Return ONLY the replacement word or very short phrase from each approved candidate.
+Do NOT return the complete test lines.
+Return one approved replacement per line.
 Do not number the suggestions.
 Do not use bullets.
 Do not repeat suggestions.
