@@ -63,7 +63,22 @@ Full lyrics:
 ${lyrics}
 
 Generate exactly 15 context-aware replacement words or very short phrases for "${word}".
+CRITICAL CONTEXT RULE:
+First locate the exact lyric line or sentence containing "${word}" in the full lyrics.
 
+For EACH proposed suggestion, mentally replace "${word}" with that suggestion in the exact original lyric line.
+
+Only keep the suggestion if the resulting line:
+- sounds natural and meaningful
+- remains grammatically correct
+- preserves the original line's intended meaning as closely as possible
+- fits the same grammatical role as "${word}"
+- fits the surrounding words naturally
+- works with the rhythm and lyrical flow
+
+Do NOT suggest words merely because they are related to the song's theme or mood.
+Do NOT return general synonyms or associated words unless they can directly replace "${word}" in the exact original line.
+Reject any suggestion that would make the original line sound unnatural, grammatically incorrect, or change its meaning substantially.
 IMPORTANT:
 Each suggestion must be something that can naturally replace "${word}" at its existing location in the lyrics.
 
