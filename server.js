@@ -54,7 +54,7 @@ app.post("/suggest-words", async (req, res) => {
                 {
                     role: "user",
                     content: `
-You are an expert song lyric editor.
+You are an expert professional song lyric editor.
 
 Language: ${language}
 Word to replace: "${word}"
@@ -62,45 +62,60 @@ Word to replace: "${word}"
 Full lyrics:
 ${lyrics}
 
-Generate exactly 15 context-aware replacement words or very short phrases for "${word}".
-CRITICAL CONTEXT RULE:
-First locate the exact lyric line or sentence containing "${word}" in the full lyrics.
+TASK:
+Generate exactly 15 natural replacement words or very short phrases for "${word}".
 
-For EACH proposed suggestion, mentally replace "${word}" with that suggestion in the exact original lyric line.
+STEP 1 — FIND THE EXACT CONTEXT:
+First locate the exact occurrence of "${word}" in the full lyrics.
+Identify the complete lyric line containing it.
+Understand what "${word}" means specifically in that line, its grammatical role, emotional purpose, and relationship with the surrounding words.
 
-Only keep the suggestion if the resulting line:
-- sounds natural and meaningful
-- remains grammatically correct
-- preserves the original line's intended meaning as closely as possible
-- fits the same grammatical role as "${word}"
-- fits the surrounding words naturally
-- works with the rhythm and lyrical flow
+If "${word}" does not appear anywhere in the lyrics, return exactly:
+WORD_NOT_FOUND
 
-Do NOT suggest words merely because they are related to the song's theme or mood.
-Do NOT return general synonyms or associated words unless they can directly replace "${word}" in the exact original line.
-Reject any suggestion that would make the original line sound unnatural, grammatically incorrect, or change its meaning substantially.
-IMPORTANT:
-Each suggestion must be something that can naturally replace "${word}" at its existing location in the lyrics.
+STEP 2 — TEST EVERY CANDIDATE:
+For every candidate, mentally substitute it directly into the exact original line in place of "${word}".
 
-Before suggesting a replacement, understand the complete lyric sentence or line containing "${word}", as well as the surrounding lyrics.
+Reject the candidate unless the complete resulting lyric line:
+- sounds natural when spoken or sung
+- is grammatically correct
+- makes clear sense
+- preserves the original meaning or emotional intention as closely as possible
+- uses the same grammatical role as the original word
+- fits naturally with the words immediately before and after it
+- suits the song's mood
+- has reasonable rhythm, syllable flow, and singability
 
-Every suggestion must:
-- fit naturally into the existing lyric sentence or line
-- preserve the intended meaning where possible
-- be grammatically correct in that exact position
-- match the emotional mood and context of the song
-- consider rhyme, rhythm, syllable flow, and singability
-- match the selected language and the language/style actually used in the lyrics
-- avoid random dictionary synonyms that do not fit the sentence
-- avoid duplicate or nearly identical suggestions
-- be concise enough to replace the original word naturally
-- if the language is Hindi, use Hindi words written only in Roman/English letters, never Devanagari
-- if Punjabi or Haryanvi is written in English letters, keep the same Roman-script style
+CRITICAL QUALITY RULES:
+Do NOT return words merely because they are synonyms, related words, or connected to the general theme of the song.
+Do NOT return formal dictionary or literary vocabulary when a normal songwriter would naturally use a simpler word.
+Do NOT return awkward translations.
+Do NOT return a candidate just to reach 15 suggestions.
+Prefer natural, commonly used lyrical language over rare, technical, overly formal, or unnatural vocabulary.
+Each suggestion must work as a DIRECT replacement at the exact position of "${word}".
 
-Return exactly 15 suggestions.
+For Hindi:
+- use natural conversational/song Hindi
+- write only in Roman/English letters
+- never use Devanagari
+- prefer words commonly heard in modern Hindi songs
+- avoid overly Sanskritized/formal words such as "apoorn", "asampurn", or "sunya" when natural alternatives exist
+
+For Punjabi or Haryanvi written in Roman letters:
+- keep the same Roman-script style
+- use natural song/conversational vocabulary
+
+FINAL SELF-CHECK:
+Before returning each suggestion, read the original lyric line again with that suggestion inserted.
+If the resulting line sounds strange, unnatural, grammatically wrong, overly formal, or substantially changes the intended meaning, reject it.
+
+Return exactly 15 high-quality suggestions if 15 genuinely suitable replacements exist.
+If fewer than 15 genuinely natural replacements exist, return only the genuinely suitable ones. Quality is more important than forcing 15 poor suggestions.
+
 Return one suggestion per line.
 Do not number the suggestions.
 Do not use bullets.
+Do not repeat suggestions.
 Do not add explanations, headings, quotation marks, or any other text.
 `
                 }
@@ -109,11 +124,18 @@ Do not add explanations, headings, quotation marks, or any other text.
 
         const text = response.choices[0].message.content || "";
 
-        const suggestions = text
-            .split("\n")
-            .map(item => item.trim())
-            .filter(item => item.length > 0)
-            .slice(0, 15);
+        if (text.trim() === "WORD_NOT_FOUND") {
+    return res.json({
+        suggestions: []
+    });
+}
+
+const suggestions = text
+    .split("\n")
+    .map(item => item.trim())
+    .filter(item => item.length > 0)
+    .filter(item => item !== "WORD_NOT_FOUND")
+    .slice(0, 15);
 
         res.json({ suggestions });
 
