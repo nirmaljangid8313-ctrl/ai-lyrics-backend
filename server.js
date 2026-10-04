@@ -75,7 +75,23 @@ WORD_NOT_FOUND
 
 STEP 2 — TEST EVERY CANDIDATE:
 For every candidate, mentally substitute it directly into the exact original line in place of "${word}".
+STRICT DIRECT-REPLACEMENT TEST:
+Do not judge the candidate by itself. Judge ONLY the complete lyric line after substitution.
 
+For each candidate, internally construct:
+ORIGINAL LINE: the exact line from the lyrics
+TEST LINE: the same exact line with only "${word}" replaced by the candidate
+
+Compare the TEST LINE with the ORIGINAL LINE.
+
+Reject the candidate if:
+- the TEST LINE would require changing, adding, removing, or rearranging any other word to sound correct
+- the candidate does not grammatically connect with the words immediately before and after it
+- the candidate changes the sentence structure
+- the candidate is merely related in meaning but is not interchangeable in this exact sentence
+- a fluent native speaker would find the complete TEST LINE unnatural
+
+The candidate must work while EVERY OTHER WORD in the original lyric line remains exactly unchanged.
 Reject the candidate unless the complete resulting lyric line:
 - sounds natural when spoken or sung
 - is grammatically correct
@@ -106,6 +122,16 @@ For Punjabi or Haryanvi written in Roman letters:
 - use natural song/conversational vocabulary
 
 FINAL SELF-CHECK:
+STRICT FINAL VALIDATION:
+For every remaining suggestion, insert it into the exact original lyric line one final time.
+
+The replacement must work with absolutely no other changes to that line.
+
+Ask: "Would a fluent native speaker/songwriter naturally write and sing this complete line exactly this way?"
+
+If the answer is not clearly YES, reject the suggestion.
+
+Never sacrifice sentence correctness or naturalness just to produce more suggestions.
 Before returning each suggestion, read the original lyric line again with that suggestion inserted.
 If the resulting line sounds strange, unnatural, grammatically wrong, overly formal, or substantially changes the intended meaning, reject it.
 
