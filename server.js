@@ -1,198 +1,1793 @@
-const express = require("express");
-const cors = require("cors");
+import 'dotenv/config';
 
-require("dotenv").config();
-const OpenAI = require("openai");
-const openai = new OpenAI({
-    apiKey: process.env.GROQ_API_KEY,
-    baseURL: "https://api.groq.com/openai/v1"
-});
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import Groq from 'groq-sdk';
 
 const app = express();
 
 app.use(cors());
-app.use(express.json());
 
-app.get("/", (req, res) => {
-    res.send("AI Lyrics Maker backend is running!");
-});
+app.use(
+  express.json({
+    limit: '3mb'
+  })
+);
 
-app.post("/generate-lyrics", async (req, res) => {
-    const { language, prompt } = req.body;
+const tempDir =
+  path.join(
+    os.tmpdir(),
+    'ai-song-video-studio'
+  );
+
+fs.mkdirSync(
+  tempDir,
+  {
+    recursive: true
+  }
+);
+
+const upload =
+  multer({
+    dest: tempDir,
+    limits: {
+      fileSize:
+        25 *
+        1024 *
+        1024
+    }
+  });
+
+if (
+  !process.env
+    .GROQ_API_KEY
+) {
+  console.warn(
+    'WARNING: GROQ_API_KEY is missing.'
+  );
+}
+
+const groq =
+  new Groq({
+    apiKey:
+      process.env
+        .GROQ_API_KEY
+  });
+
+const TEXT_MODEL =
+  process.env
+    .GROQ_TEXT_MODEL ||
+  'openai/gpt-oss-120b';
+
+const WHISPER_MODEL =
+  process.env
+    .GROQ_WHISPER_MODEL ||
+  'whisper-large-v3-turbo';
+
+function stripFence(
+  text = ''
+) {
+  return text
+    .trim()
+    .replace(
+      /^```(?:json)?\s*/i,
+      ''
+    )
+    .replace(
+      /\s*```$/i,
+      ''
+    )
+    .trim();
+}
+
+function parseJsonLoose(
+  text = ''
+) {
+
+  const clean =
+    stripFence(text);
+
+  try {
+    return JSON.parse(
+      clean
+    );
+  } catch {}
+
+  const start =
+    clean.indexOf(
+      '{'
+    );
+
+  const end =
+    clean.lastIndexOf(
+      '}'
+    );
+
+  if (
+    start >= 0 &&
+    end > start
+  ) {
+
+    return JSON.parse(
+      clean.slice(
+        start,
+        end + 1
+      )
+    );
+  }
+
+  throw new Error(
+    'AI did not return valid JSON.'
+  );
+}
+
+async function chatText(
+  system,
+  user,
+  temperature = 0.7
+) {
+
+  const response =
+    await groq
+      .chat
+      .completions
+      .create({
+        model:
+          TEXT_MODEL,
+        temperature,
+        messages: [
+          {
+            role:
+              'system',
+            content:
+              system
+          },
+          {
+            role:
+              'user',
+            content:
+              user
+          }
+        ]
+      });
+
+  return String(
+    response
+      .choices?.[0]
+      ?.message
+      ?.content ||
+    ''
+  ).trim();
+}
+
+async function chatJson(
+  system,
+  user,
+  temperature = 0.6
+) {
+
+  const base = {
+    model:
+      TEXT_MODEL,
+    temperature,
+    messages: [
+      {
+        role:
+          'system',
+        content:
+          system
+      },
+      {
+        role:
+          'user',
+        content:
+          user
+      }
+    ]
+  };
+
+  let response;
+
+  try {
+
+    response =
+      await groq
+        .chat
+        .completions
+        .create({
+          ...base,
+          response_format: {
+            type:
+              'json_object'
+          }
+        });
+
+  } catch {
+
+    response =
+      await groq
+        .chat
+        .completions
+        .create(base);
+  }
+
+  return parseJsonLoose(
+    String(
+      response
+        .choices?.[0]
+        ?.message
+        ?.content ||
+      '{}'
+    )
+  );
+}
+
+const asArray =
+  value =>
+    Array.isArray(
+      value
+    )
+      ? value
+      : [];
+
+const previousTitles =
+  value =>
+    asArray(value)
+      .slice(-120)
+      .map(String)
+      .join(' | ');
+
+app.get(
+  '/',
+  (
+    _request,
+    response
+  ) => {
+
+    response.json({
+      ok:
+        true,
+      app:
+        'AI Song + Music Video Studio',
+      mode:
+        'zero-cost/free-tier only',
+      textModel:
+        TEXT_MODEL,
+      transcriptionModel:
+        WHISPER_MODEL
+    });
+  }
+);
+
+app.post(
+  '/generate-lyrics',
+  async (
+    request,
+    response
+  ) => {
 
     try {
-const response = await openai.chat.completions.create({
-model: "openai/gpt-oss-120b",
-messages: [
-    {
-        role: "user",
-        content: `Write original song lyrics in ${language} about this idea: ${prompt}. If the language is Hindi, write the Hindi lyrics only in Roman/English letters, not Devanagari script. Example: "Pehli dhadkan, pehla pyaar". Include Verse 1, Chorus, Verse 2, Bridge, and Final Chorus.`
-    }
-]
-});
-const lyrics = response.choices[0].message.content;
 
-    res.json({ lyrics });
-} catch (error) {
-console.error(error);
-res.status(500).json({ error: "Failed to generate lyrics" });
-}
-});
-app.post("/suggest-words", async (req, res) => {
-    const { word, lyrics, language } = req.body;
+      const language =
+        String(
+          request.body
+            .language ||
+          'English'
+        );
 
-    if (!word || !lyrics) {
-        return res.status(400).json({
-            error: "Word and lyrics are required."
+      const prompt =
+        String(
+          request.body
+            .prompt ||
+          ''
+        ).trim();
+
+      if (!prompt) {
+
+        return response
+          .status(400)
+          .json({
+            error:
+              'Prompt required.'
+          });
+      }
+
+      const romanHindi =
+        language
+          .toLowerCase() ===
+        'hindi'
+          ? `
+Write Hindi-language lyrics only in Roman/English letters.
+Never use Devanagari script.
+`
+          : '';
+
+      const lyrics =
+        await chatText(
+          `
+You are an original professional songwriter.
+
+Never copy existing songs or copyrighted lyrics.
+
+Return only original lyrics.
+          `,
+          `
+Language:
+${language}
+
+${romanHindi}
+
+Song idea:
+${prompt}
+
+Use a strong song structure where suitable:
+
+[Intro]
+[Verse 1]
+[Pre-Chorus]
+[Chorus]
+[Verse 2]
+[Bridge or Rap]
+[Final Chorus]
+[Outro]
+
+Requirements:
+
+- Memorable hook
+- Natural rhyme
+- Smooth lyrical flow
+- Strong emotion
+- Singable line length
+- Original wording
+- Clear verse-to-chorus progression
+          `,
+          0.88
+        );
+
+      response.json({
+        lyrics
+      });
+
+    } catch (error) {
+
+      response
+        .status(500)
+        .json({
+          error:
+            error.message
         });
     }
+  }
+);
+
+app.post(
+  '/improve-lyrics',
+  async (
+    request,
+    response
+  ) => {
 
     try {
-        const response = await openai.chat.completions.create({
-            model: "openai/gpt-oss-120b",
-            messages: [
-                {
-                    role: "user",
-                    content: `
-You are an expert professional song lyric editor.
 
-Language: ${language}
-Word to replace: "${word}"
+      const language =
+        String(
+          request.body
+            .language ||
+          'English'
+        );
+
+      const selectedText =
+        String(
+          request.body
+            .selectedText ||
+          ''
+        );
+
+      const lyrics =
+        String(
+          request.body
+            .lyrics ||
+          ''
+        );
+
+      const instruction =
+        String(
+          request.body
+            .instruction ||
+          'Improve the selection'
+        );
+
+      const romanHindi =
+        language
+          .toLowerCase() ===
+        'hindi'
+          ? 'Use Roman Hindi only. Never use Devanagari.'
+          : '';
+
+      const improvedText =
+        await chatText(
+          `
+You are a professional lyric editor.
+
+Return only replacement text.
+
+Do not explain.
+
+Keep the result original, singable,
+context-aware and consistent with the song.
+          `,
+          `
+Language:
+${language}
+
+${romanHindi}
+
+Instruction:
+${instruction}
+
+Selected passage:
+${selectedText}
+
+Full lyrics:
+${lyrics}
+          `,
+          0.75
+        );
+
+      response.json({
+        improvedText
+      });
+
+    } catch (error) {
+
+      response
+        .status(500)
+        .json({
+          error:
+            error.message
+        });
+    }
+  }
+);
+app.post(
+  '/suggest-words',
+  async (
+    request,
+    response
+  ) => {
+
+    try {
+
+      const language =
+        String(
+          request.body
+            .language ||
+          'English'
+        );
+
+      const word =
+        String(
+          request.body
+            .word ||
+          ''
+        ).trim();
+
+      const lyrics =
+        String(
+          request.body
+            .lyrics ||
+          ''
+        );
+
+      if (!word) {
+
+        return response
+          .status(400)
+          .json({
+            error:
+              'Word required.'
+          });
+      }
+
+      const result =
+        await chatJson(
+          `
+You are a songwriter and contextual word-replacement specialist.
+
+Return strict JSON only.
+          `,
+          `
+Language:
+${language}
+
+Selected word:
+${word}
 
 Full lyrics:
 ${lyrics}
 
-TASK:
-Generate high-quality replacement words or very short phrases for "${word}" that can be inserted directly into its exact position in the lyrics.
+Return exactly 15 unique replacement words
+or very short replacement phrases.
 
-STEP 1 — LOCATE THE WORD:
-Find the exact occurrence of "${word}" in the full lyrics and identify the complete lyric line containing it.
+Every option must fit:
 
-If "${word}" does not appear anywhere in the lyrics, return exactly:
-WORD_NOT_FOUND
+- Grammar
+- Meaning
+- Rhyme
+- Emotion
+- Sentence context
+- Song flow
+- Selected language
 
-STEP 2 — UNDERSTAND THE ORIGINAL LINE:
-Understand:
-- the exact meaning of "${word}" in this line
-- its grammatical role
-- the words immediately before and after it
-- the emotion of the line
-- the rhythm and natural lyrical phrasing
+For Hindi, use Roman Hindi only.
 
-STEP 3 — GENERATE CANDIDATES:
-Create a broad internal pool of possible replacements.
+Return:
 
-Do not output this pool yet.
-
-STEP 4 — BUILD AND TEST THE COMPLETE LINE:
-For every candidate, internally create a complete TEST LINE by replacing only "${word}" with that candidate.
-
-Every other word in the original lyric line must remain exactly unchanged.
-
-Example process:
-Original line: [exact original lyric line]
-Candidate: [candidate]
-Test line: [original line with only the target word replaced]
-
-Now judge the COMPLETE TEST LINE, not the candidate by itself.
-
-Reject the candidate immediately if:
-- the complete test line sounds unnatural
-- grammar becomes incorrect
-- another word would need to be added, removed, changed, or rearranged
-- the candidate does not connect naturally with the words immediately before and after it
-- the candidate changes the grammatical structure
-- the candidate substantially changes the intended meaning
-- the candidate is only thematically related rather than directly interchangeable
-- the resulting line sounds awkward when spoken or sung
-- the candidate creates redundant wording or duplicated meaning with nearby words
-
-STEP 5 — NATIVE SONGWRITER TEST:
-For every surviving candidate, ask:
-
-"Would a fluent native songwriter naturally write and sing the COMPLETE TEST LINE exactly this way, without changing any other word?"
-
-Keep the candidate only if the answer is clearly YES.
-
-For Hindi:
-- use natural modern Hindi song/conversational vocabulary
-- write Hindi only in Roman/English letters
-- never use Devanagari
-- avoid unnecessarily formal, Sanskritized, dictionary-like, or unnatural vocabulary
-- reject constructions that duplicate nearby grammar, for example a "bina..." replacement immediately after an existing "bin"
-
-For Punjabi or Haryanvi written in Roman letters:
-- keep Roman script
-- use natural conversational/song vocabulary
-
-STEP 6 — RANK THE SURVIVORS:
-Rank valid candidates by:
-1. grammatical fit in the exact original line
-2. naturalness to a fluent native speaker
-3. preservation of the original meaning/emotion
-4. lyrical flow and singability
-5. rhyme and rhythm
-
-Return the best 15 only if 15 candidates genuinely pass all tests.
-If fewer than 15 candidates genuinely pass, return fewer than 15.
-Never include a weak candidate merely to reach 15.
-
-OUTPUT RULES:
-Return ONLY the replacement word or very short phrase from each approved candidate.
-Do NOT return the complete test lines.
-Return one approved replacement per line.
-Do not number the suggestions.
-Do not use bullets.
-Do not repeat suggestions.
-Do not add explanations, headings, quotation marks, or any other text.
-`
-                }
-            ]
-        });
-
-        const text = response.choices[0].message.content || "";
-
-        if (text.trim() === "WORD_NOT_FOUND") {
-    return res.json({
-        suggestions: []
-    });
+{
+  "suggestions": [
+    "..."
+  ]
 }
+          `,
+          0.78
+        );
 
-const suggestions = text
-    .split("\n")
-    .map(item => item.trim())
-    .filter(item => item.length > 0)
-    .filter(item => item !== "WORD_NOT_FOUND")
-    .slice(0, 15);
+      const suggestions =
+        [
+          ...new Set(
+            asArray(
+              result
+                .suggestions
+            )
+              .map(String)
+              .map(
+                value =>
+                  value.trim()
+              )
+              .filter(Boolean)
+          )
+        ].slice(
+          0,
+          15
+        );
 
-        res.json({ suggestions });
+      response.json({
+        suggestions
+      });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({
-            error: "Failed to suggest words."
+
+      response
+        .status(500)
+        .json({
+          error:
+            error.message
         });
     }
-});
-app.post("/improve-lyrics", async (req, res) => {
-const { selectedText, lyrics, language } = req.body;
-try {
+  }
+);
 
-const response = await openai.chat.completions.create({
-    model: "openai/gpt-oss-120b",
-    messages: [
-        { role: "system", content: "You are an expert professional songwriter and lyric editor. IMPORTANT: If the selected language is Hindi, write Hindi words ONLY using English/Roman letters. NEVER use Devanagari/Hindi script characters such as अ, आ, क, ठ, ह. Return only Roman-script Hindi." },
-        { role: "user", content: `Improve ONLY the selected lyric text while preserving its original meaning, emotion, language, rhyme, rhythm, and song context. Return only the improved replacement text, with no explanation. Language: ${language}. Selected text: ${selectedText}. Full lyrics for context: ${lyrics}` }
-        ],
-    });
-    const improvedText = response.choices[0].message.content.trim();
-    res.json({ improvedText });
-    } catch (error) {
-  console.error("Improve lyrics error:", error);
-  res.status(500).json({ error: "Failed to improve lyrics" });
+app.post(
+  '/ai-coach',
+  async (
+    request,
+    response
+  ) => {
+
+    try {
+
+      const stage =
+        String(
+          request.body
+            .stage ||
+          'Studio'
+        );
+
+      const context =
+        String(
+          request.body
+            .context ||
+          ''
+        ).slice(
+          0,
+          14000
+        );
+
+      const page =
+        Math.max(
+          0,
+          Number(
+            request.body
+              .page ||
+            0
+          )
+        );
+
+      const exclude =
+        previousTitles(
+          request.body
+            .exclude
+        );
+
+      const result =
+        await chatJson(
+          `
+You are the built-in creative coach for a complete AI song and music-video studio.
+
+You help with:
+
+- Lyrics
+- Songwriting
+- Music production
+- Beats
+- Arrangement
+- Vocals
+- Vocal editing
+- Mixing
+- Mastering
+- Finished-song editing
+- Bollywood video concepts
+- Anime music videos
+- Anime-Bollywood fusion
+- Storyboarding
+- Character consistency
+- Cinematography
+- Choreography
+- Lip-sync planning
+- Beat-sync planning
+- Captions
+- Video editing
+- Export
+
+Return strict JSON only.
+          `,
+          `
+Current stage:
+${stage}
+
+Current project:
+${context}
+
+Suggestion page:
+${page + 1}
+
+Do not repeat:
+${exclude || 'none'}
+
+Give 12 NEW, highly specific,
+directly usable suggestions.
+
+Do not give generic advice.
+
+If the current mode is anime,
+make anime-specific suggestions.
+
+If the current mode is Bollywood,
+make cinematic Bollywood-specific suggestions.
+
+Each suggestion must contain:
+
+- Short title
+- Directly usable action
+- Why it improves this exact project
+
+Return:
+
+{
+  "suggestions": [
+    {
+      "title": "...",
+      "action": "...",
+      "why": "..."
+    }
+  ],
+  "hasMore": true
 }
-});
-const PORT = 3000;
-app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
-});
+          `,
+          0.64
+        );
+
+      response.json({
+        suggestions:
+          asArray(
+            result
+              .suggestions
+          ),
+        hasMore:
+          result
+            .hasMore !==
+          false
+      });
+
+    } catch (error) {
+
+      response
+        .status(500)
+        .json({
+          error:
+            error.message
+        });
+    }
+  }
+);
+
+const musicShape =
+`
+{
+  "title": "...",
+  "score": 0,
+  "category": "...",
+  "why": "...",
+  "genre": "...",
+  "subgenre": "...",
+  "beatType": "...",
+  "bpm": 100,
+  "key": "C",
+  "scale": "Major",
+  "chordFeel": "...",
+  "instrumentation": ["..."],
+  "bassStyle": "...",
+  "drumStyle": "...",
+  "arrangement": "...",
+  "productionStyle": "...",
+  "vocalFit": "...",
+  "energyPlan": "...",
+  "mood": "..."
+}
+`;
+
+app.post(
+  '/music-recommendations',
+  async (
+    request,
+    response
+  ) => {
+
+    try {
+
+      const lyrics =
+        String(
+          request.body
+            .lyrics ||
+          ''
+        ).trim();
+
+      const language =
+        String(
+          request.body
+            .language ||
+          'English'
+        );
+
+      const page =
+        Math.max(
+          0,
+          Number(
+            request.body
+              .page ||
+            0
+          )
+        );
+
+      const count =
+        Math.min(
+          24,
+          Math.max(
+            8,
+            Number(
+              request.body
+                .count ||
+              16
+            )
+          )
+        );
+
+      if (!lyrics) {
+
+        return response
+          .status(400)
+          .json({
+            error:
+              'Lyrics required.'
+          });
+      }
+
+      const result =
+        await chatJson(
+          `
+You are an elite Indian and global music producer,
+composer, arranger and music director.
+
+Return strict JSON only.
+
+Do not imitate one specific copyrighted song,
+recording or living artist.
+          `,
+          `
+Language:
+${language}
+
+Full lyrics:
+${lyrics}
+
+STEP 1:
+
+Choose ONE complete music direction that is
+the strongest fit for these exact lyrics.
+
+Choose:
+
+- Genre
+- Subgenre
+- Beat/rhythm type
+- BPM
+- Key or tonal direction
+- Scale
+- Chord feeling
+- Instrumentation
+- Bass style
+- Drum style
+- Arrangement
+- Production style
+- Vocal treatment
+- Verse energy
+- Pre-chorus energy
+- Chorus energy
+- Bridge energy
+- Overall mood
+
+Explain WHY it is the best fit.
+
+STEP 2:
+
+Generate ${count}
+meaningfully different alternatives.
+
+Suggestion page:
+${page + 1}
+
+Previously shown:
+${previousTitles(request.body.exclude) || 'none'}
+
+Do not repeat previous concepts.
+
+Explore relevant possibilities such as:
+
+Bollywood
+Hindi commercial pop
+Punjabi
+Haryanvi
+Indian folk fusion
+Sufi-inspired
+Ghazal-inspired
+Pop
+Hip-hop
+Trap
+Drill
+R&B
+Soul
+Rock
+Pop rock
+Lo-fi
+EDM
+House
+Deep house
+Afrobeat
+Reggaeton
+Acoustic
+Orchestral
+Cinematic
+Synthwave
+Retro
+Wedding
+Club
+Ambient
+Luxury hip-hop
+Dark cinematic
+Experimental fusion
+
+Rank by actual lyric fit.
+
+Recommendation object:
+
+${musicShape}
+
+Return:
+
+{
+  "best": ${musicShape},
+  "suggestions": [
+    ${musicShape}
+  ],
+  "hasMore": true
+}
+          `,
+          0.70
+        );
+
+      response.json({
+        best:
+          result.best ||
+          null,
+        suggestions:
+          asArray(
+            result
+              .suggestions
+          ),
+        hasMore:
+          result
+            .hasMore !==
+          false
+      });
+
+    } catch (error) {
+
+      response
+        .status(500)
+        .json({
+          error:
+            error.message
+        });
+    }
+  }
+);
+app.post(
+  '/analyze-song',
+  upload.single(
+    'audio'
+  ),
+  async (
+    request,
+    response
+  ) => {
+
+    const file =
+      request.file;
+
+    try {
+
+      if (!file) {
+
+        return response
+          .status(400)
+          .json({
+            error:
+              'Audio file required.'
+          });
+      }
+
+      const transcription =
+        await groq
+          .audio
+          .transcriptions
+          .create({
+            file:
+              fs.createReadStream(
+                file.path
+              ),
+            model:
+              WHISPER_MODEL,
+            response_format:
+              'json'
+          });
+
+      const transcript =
+        String(
+          transcription
+            .text ||
+          ''
+        ).trim();
+
+      if (!transcript) {
+
+        throw new Error(
+          'No speech/lyrics could be transcribed.'
+        );
+      }
+
+      const analysis =
+        await chatJson(
+          `
+You are a professional song analyst,
+music producer, lyric interpreter
+and music-video director.
+
+Return strict JSON only.
+          `,
+          `
+Analyze this uploaded song transcript:
+
+${transcript}
+
+Analyze:
+
+- Meaning
+- Story
+- Language
+- Mood
+- Themes
+- Possible genre directions
+- Vocal character
+- Energy curve
+- Likely verse/chorus/bridge sections
+- Emotional peaks
+- Strong visual possibilities
+- Best clues for a cinematic or anime video
+
+Important:
+
+Do NOT invent an exact BPM,
+musical key or scale from transcript alone.
+
+Return:
+
+{
+  "summary": "...",
+  "language": "...",
+  "mood": ["..."],
+  "themes": ["..."],
+  "genrePossibilities": ["..."],
+  "vocalStyle": "...",
+  "energyCurve": "...",
+  "sections": [
+    {
+      "name": "...",
+      "description": "..."
+    }
+  ],
+  "emotionalPeaks": ["..."],
+  "visualKeywords": ["..."],
+  "notes": "..."
+}
+          `,
+          0.40
+        );
+
+      response.json({
+        transcript,
+        analysis
+      });
+
+    } catch (error) {
+
+      response
+        .status(500)
+        .json({
+          error:
+            error.message
+        });
+
+    } finally {
+
+      if (
+        file?.path
+      ) {
+
+        fs.promises
+          .unlink(
+            file.path
+          )
+          .catch(
+            () => {}
+          );
+      }
+    }
+  }
+);
+
+const videoShape =
+`
+{
+  "title": "...",
+  "score": 0,
+  "category": "...",
+  "why": "...",
+  "mode": "CINEMATIC_BOLLYWOOD|FULL_ANIME|ANIME_BOLLYWOOD_FUSION",
+  "concept": "...",
+  "story": "...",
+  "visualStyle": "...",
+  "characters": "...",
+  "locations": ["..."],
+  "costumes": "...",
+  "colorPalette": "...",
+  "lighting": "...",
+  "cameraStyle": "...",
+  "choreography": "...",
+  "pacing": "...",
+  "transitions": "...",
+  "lipSyncStrategy": "...",
+  "beatSyncStrategy": "...",
+  "storyboardDirection": "..."
+}
+`;
+
+app.post(
+  '/video-recommendations',
+  async (
+    request,
+    response
+  ) => {
+
+    try {
+
+      const lyrics =
+        String(
+          request.body
+            .lyrics ||
+          ''
+        ).trim();
+
+      const requestedMode =
+        String(
+          request.body
+            .videoMode ||
+          'AUTO_AI_CHOICE'
+        );
+
+      const page =
+        Math.max(
+          0,
+          Number(
+            request.body
+              .page ||
+            0
+          )
+        );
+
+      const count =
+        Math.min(
+          24,
+          Math.max(
+            8,
+            Number(
+              request.body
+                .count ||
+              16
+            )
+          )
+        );
+
+      if (!lyrics) {
+
+        return response
+          .status(400)
+          .json({
+            error:
+              'Lyrics/transcript required.'
+          });
+      }
+
+      const modeInstruction =
+        requestedMode ===
+        'AUTO_AI_CHOICE'
+          ? `
+Choose the strongest mode between:
+
+CINEMATIC_BOLLYWOOD
+FULL_ANIME
+ANIME_BOLLYWOOD_FUSION
+
+based entirely on the song.
+`
+          : `
+All recommendations must primarily follow:
+
+${requestedMode}
+`;
+
+      const result =
+        await chatJson(
+          `
+You are simultaneously:
+
+- A Bollywood music-video director
+- An anime music-video director
+- A storyboard artist
+- A cinematographer
+- A choreographer
+- A video editor
+- A character-continuity director
+
+Return strict JSON only.
+
+Create original concepts.
+
+Never copy a specific movie,
+anime franchise,
+existing music video,
+or copyrighted character design.
+          `,
+          `
+Lyrics/transcript:
+
+${lyrics}
+
+Song analysis:
+
+${JSON.stringify(
+  request.body
+    .analysis ||
+  {}
+)}
+
+Music information:
+
+${JSON.stringify(
+  request.body
+    .music ||
+  {}
+)}
+
+Requested visual mode:
+
+${requestedMode}
+
+${modeInstruction}
+
+STEP 1:
+
+Create ONE strongest overall
+video recommendation.
+
+Automatically select:
+
+- Main concept
+- Story
+- Hero
+- Heroine
+- Supporting characters
+- Locations
+- Costumes
+- Visual style
+- Lighting
+- Color palette
+- Camera style
+- Dance/choreography
+- Scene pacing
+- Transitions
+- Lip-sync strategy
+- Beat-sync strategy
+- Storyboard direction
+
+Explain why this is the strongest choice.
+
+STEP 2:
+
+Generate ${count}
+additional distinct alternatives.
+
+Suggestion page:
+${page + 1}
+
+Do not repeat:
+
+${previousTitles(request.body.exclude) || 'none'}
+          `,
+          0.72
+        );
+
+      response.json({
+        best:
+          result.best ||
+          null,
+        suggestions:
+          asArray(
+            result
+              .suggestions
+          ),
+        hasMore:
+          result
+            .hasMore !==
+          false
+      });
+
+    } catch (error) {
+
+      response
+        .status(500)
+        .json({
+          error:
+            error.message
+        });
+    }
+  }
+);
+/*
+ * Additional video-mode guidance.
+ * These concepts are used by the AI prompt
+ * through the video recommendation endpoint.
+ */
+
+const cinematicBollywoodGuide =
+`
+For CINEMATIC_BOLLYWOOD explore only when suitable:
+
+- Bollywood romance
+- Rain romance
+- Mountain romance
+- Luxury lifestyle
+- Wedding
+- Celebration
+- Club
+- Dance performance
+- Emotional separation
+- Reunion
+- Traditional Indian
+- Urban cinematic
+- Retro Bollywood-inspired original visuals
+- Dream sequence
+- Performance video
+- Story-led narrative
+- Travel romance
+
+Use original characters and original story ideas.
+`;
+
+const animeGuide =
+`
+For FULL_ANIME explore only when suitable:
+
+- Original anime hero and heroine
+- Anime romance
+- Emotional anime drama
+- Slice-of-life
+- Fantasy
+- Cyberpunk
+- Anime city nights
+- Rain scenes
+- Mountain anime
+- School/college environments
+- Anime performance stage
+- Anime dance
+- Anime action
+- Dream worlds
+- Anime watercolor
+- Anime cel-shading
+- Manga-inspired transitions
+
+Never copy a known anime character.
+
+Always describe an original character design.
+
+Maintain:
+
+- Face shape
+- Eye design
+- Eye color
+- Hair style
+- Hair color
+- Body proportions
+- Main outfit
+- Main color palette
+
+across scenes unless a costume change is intentional.
+`;
+
+const animeBollywoodGuide =
+`
+For ANIME_BOLLYWOOD_FUSION combine:
+
+- Original anime character design
+- Indian/Bollywood storytelling
+- Indian emotional storytelling
+- Indian fashion
+- Saree
+- Lehenga
+- Sherwani
+- Modern Indian street fashion
+- Bollywood dance
+- Indian wedding sequences
+- Mumbai
+- Delhi
+- Jaipur
+- Goa
+- Himalayan/mountain settings
+- Indian festivals where relevant
+- Anime cinematography
+- Anime lighting
+- Anime expressions
+- Original choreography
+
+Maintain character identity across all scenes.
+`;
+
+app.post(
+  '/edit-video-plan',
+  async (
+    request,
+    response
+  ) => {
+
+    try {
+
+      const command =
+        String(
+          request.body
+            .command ||
+          ''
+        ).trim();
+
+      const current =
+        request.body
+          .current ||
+        {};
+
+      const lyrics =
+        String(
+          request.body
+            .lyrics ||
+          ''
+        ).slice(
+          0,
+          12000
+        );
+
+      const mode =
+        String(
+          request.body
+            .videoMode ||
+          'CINEMATIC_BOLLYWOOD'
+        );
+
+      if (!command) {
+
+        return response
+          .status(400)
+          .json({
+            error:
+              'Edit command required.'
+          });
+      }
+
+      const modeGuide =
+        mode ===
+        'FULL_ANIME'
+          ? animeGuide
+          : mode ===
+            'ANIME_BOLLYWOOD_FUSION'
+            ? animeBollywoodGuide
+            : cinematicBollywoodGuide;
+
+      const updated =
+        await chatJson(
+          `
+You are an AI music-video editor.
+
+Apply ONLY the user's requested change.
+
+Preserve everything the user did not ask to change.
+
+Preserve:
+
+- Character identity
+- Story continuity
+- Visual style
+- Costumes
+- Locations
+- Camera choices
+- Scene continuity
+
+For anime characters preserve:
+
+- Face shape
+- Eye design
+- Eye color
+- Hair
+- Body design
+- Character proportions
+- Main palette
+
+unless the user explicitly requests a change.
+
+Return strict JSON only.
+          `,
+          `
+Video mode:
+${mode}
+
+Mode guidance:
+${modeGuide}
+
+User edit command:
+
+${command}
+
+Current video plan:
+
+${JSON.stringify(current)}
+
+Lyrics/transcript:
+
+${lyrics}
+
+Return one updated video recommendation.
+
+Use this exact object shape:
+
+${videoShape}
+          `,
+          0.55
+        );
+
+      response.json({
+        updated:
+          updated.updated ||
+          updated
+      });
+
+    } catch (error) {
+
+      response
+        .status(500)
+        .json({
+          error:
+            error.message
+        });
+    }
+  }
+);
+
+app.post(
+  '/storyboard',
+  async (
+    request,
+    response
+  ) => {
+
+    try {
+
+      const lyrics =
+        String(
+          request.body
+            .lyrics ||
+          ''
+        ).trim();
+
+      const mode =
+        String(
+          request.body
+            .videoMode ||
+          'CINEMATIC_BOLLYWOOD'
+        );
+
+      const concept =
+        request.body
+          .concept ||
+        {};
+
+      if (!lyrics) {
+
+        return response
+          .status(400)
+          .json({
+            error:
+              'Lyrics/transcript required.'
+          });
+      }
+
+      const modeGuide =
+        mode ===
+        'FULL_ANIME'
+          ? animeGuide
+          : mode ===
+            'ANIME_BOLLYWOOD_FUSION'
+            ? animeBollywoodGuide
+            : cinematicBollywoodGuide;
+
+      const result =
+        await chatJson(
+          `
+You are a professional music-video
+storyboard director.
+
+Return strict JSON only.
+
+Create a coherent beginning,
+middle and ending.
+
+Every scene must connect naturally
+to the previous scene.
+          `,
+          `
+Video mode:
+${mode}
+
+Mode guidance:
+
+${modeGuide}
+
+Chosen concept:
+
+${JSON.stringify(concept)}
+
+Lyrics/transcript:
+
+${lyrics}
+
+Create a coherent scene-by-scene storyboard.
+
+For anime modes:
+
+Use original anime characters.
+
+Preserve:
+
+- Hair style
+- Hair color
+- Face shape
+- Eye design
+- Eye color
+- Main outfit
+- Character proportions
+- Primary color palette
+
+unless the story intentionally
+changes clothing.
+
+For Bollywood mode:
+
+Preserve hero/heroine appearance,
+costume logic,
+location continuity
+and cinematic continuity.
+
+For every lyric/time segment include:
+
+- Approximate start time
+- Approximate end time
+- Lyric
+- Meaning
+- Scene description
+- Characters
+- Location
+- Action
+- Camera angle/movement
+- Lighting
+- Emotion
+- Dance/choreography/action
+- Transition
+- Final generation prompt
+
+Return:
+
+{
+  "scenes": [
+    {
+      "startSeconds": 0,
+      "endSeconds": 5,
+      "lyric": "...",
+      "meaning": "...",
+      "scene": "...",
+      "characters": "...",
+      "location": "...",
+      "action": "...",
+      "camera": "...",
+      "lighting": "...",
+      "emotion": "...",
+      "choreography": "...",
+      "transition": "...",
+      "prompt": "..."
+    }
+  ]
+}
+          `,
+          0.62
+        );
+
+      response.json({
+        scenes:
+          asArray(
+            result.scenes
+          )
+      });
+
+    } catch (error) {
+
+      response
+        .status(500)
+        .json({
+          error:
+            error.message
+        });
+    }
+  }
+);
+/*
+ * Optional health/status route.
+ */
+app.get(
+  '/health',
+  (
+    _request,
+    response
+  ) => {
+
+    response.json({
+      ok: true,
+      service:
+        'AI Song + Music Video Studio Backend',
+      freeFirst:
+        true,
+      textModel:
+        TEXT_MODEL,
+      transcriptionModel:
+        WHISPER_MODEL
+    });
+  }
+);
+
+/*
+ * Unknown route handler.
+ */
+app.use(
+  (
+    request,
+    response
+  ) => {
+
+    response
+      .status(404)
+      .json({
+        error:
+          `Route not found: ${request.method} ${request.path}`
+      });
+  }
+);
+
+/*
+ * Global error handler.
+ */
+app.use(
+  (
+    error,
+    _request,
+    response,
+    _next
+  ) => {
+
+    console.error(
+      error
+    );
+
+    response
+      .status(500)
+      .json({
+        error:
+          error?.message ||
+          'Server error'
+      });
+  }
+);
+
+const port =
+  Number(
+    process.env.PORT ||
+    3000
+  );
+
+app.listen(
+  port,
+  '0.0.0.0',
+  () => {
+
+    console.log(
+      `AI Song + Music Video Studio backend running on port ${port}`
+    );
+
+    console.log(
+      `Text model: ${TEXT_MODEL}`
+    );
+
+    console.log(
+      `Transcription model: ${WHISPER_MODEL}`
+    );
+
+    console.log(
+      'FREE-FIRST MODE: no paid provider is required by this backend.'
+    );
+  }
+);
