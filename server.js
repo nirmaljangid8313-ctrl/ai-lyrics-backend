@@ -297,14 +297,23 @@ app.post(
       }
 
       const romanHindi =
-        language
-          .toLowerCase() ===
-        'hindi'
-          ? `
-Write Hindi-language lyrics only in Roman/English letters.
-Never use Devanagari script.
-`
-          : '';
+  language === 'Hindi (Roman)'
+    ? 'Write Hindi-language lyrics only in natural Roman/English letters. Never use Devanagari script.'
+    : language === 'Hindi (Devanagari)'
+    ? 'Write Hindi-language lyrics only in natural Devanagari script.'
+    : language === 'Kannada (Roman)'
+    ? 'Write Kannada-language lyrics only in natural Roman/English transliteration. Never use Kannada script.'
+    : language === 'Kannada (Native)'
+    ? 'Write Kannada-language lyrics only in Kannada script.'
+    : language === 'Punjabi (Roman)'
+    ? 'Write Punjabi-language lyrics only in natural Roman/English transliteration. Never use Gurmukhi script.'
+    : language === 'Punjabi (Gurmukhi)'
+    ? 'Write Punjabi-language lyrics only in Gurmukhi script.'
+    : language === 'Haryanvi (Roman)'
+    ? 'Write Haryanvi-language lyrics only in natural Roman/English transliteration. Never use Devanagari script.'
+    : language === 'Haryanvi (Devanagari)'
+    ? 'Write Haryanvi-language lyrics only in Devanagari script.'
+    : '';
 
       const lyrics =
         await chatText(
@@ -402,11 +411,23 @@ app.post(
         );
 
       const romanHindi =
-        language
-          .toLowerCase() ===
-        'hindi'
-          ? 'Use Roman Hindi only. Never use Devanagari.'
-          : '';
+  language === 'Hindi (Roman)'
+    ? 'Use natural Roman/English Hindi only. Never use Devanagari.'
+    : language === 'Hindi (Devanagari)'
+    ? 'Use natural Hindi in Devanagari script only.'
+    : language === 'Kannada (Roman)'
+    ? 'Use natural Kannada transliterated only in Roman/English letters. Never use Kannada script.'
+    : language === 'Kannada (Native)'
+    ? 'Use natural Kannada script only.'
+    : language === 'Punjabi (Roman)'
+    ? 'Use natural Punjabi transliterated only in Roman/English letters. Never use Gurmukhi.'
+    : language === 'Punjabi (Gurmukhi)'
+    ? 'Use natural Punjabi in Gurmukhi script only.'
+    : language === 'Haryanvi (Roman)'
+    ? 'Use natural Haryanvi transliterated only in Roman/English letters. Never use Devanagari.'
+    : language === 'Haryanvi (Devanagari)'
+    ? 'Use natural Haryanvi in Devanagari script only.'
+    : '';
 
       const improvedText =
         await chatText(
@@ -523,7 +544,7 @@ Every option must fit:
 - Song flow
 - Selected language
 
-For Hindi, use Roman Hindi only.
+Selected language option: ${language}. Follow its script exactly: Roman options must use Roman/English letters, and native-script options must use their selected native script.
 
 Return:
 
@@ -962,7 +983,30 @@ app.post('/generate-music', async (request, response) => {
     let generationLyrics = lyrics;
 
     if (
-      language.toLowerCase() === 'hindi' &&
+  [
+    'Hindi (Roman)',
+    'Kannada (Roman)',
+    'Punjabi (Roman)',
+    'Haryanvi (Roman)'
+  ].includes(language) &&
+  lyrics &&
+  /[A-Za-z]/.test(lyrics)
+) {
+  const targetScript =
+    language === 'Hindi (Roman)'
+      ? 'natural Devanagari Hindi'
+      : language === 'Kannada (Roman)'
+      ? 'natural Kannada script'
+      : language === 'Punjabi (Roman)'
+      ? 'natural Gurmukhi Punjabi'
+      : 'natural Devanagari Haryanvi';
+
+  generationLyrics = await chatText(
+    `Convert these Roman-script ${language.replace(' (Roman)', '')} song lyrics into ${targetScript} for accurate singing pronunciation. Preserve section labels such as [Intro], [Verse], [Chorus], [Bridge], [Rap Verse] and [Outro]. Return only the converted lyrics.`,
+    lyrics,
+    0.2
+  );
+}
       lyrics &&
       /[A-Za-z]/.test(lyrics)
     ) {
@@ -1002,7 +1046,15 @@ app.post('/generate-music', async (request, response) => {
       audio_config: {
   instrumental: instrumental,
   vocal_language:
-    language.toLowerCase() === 'hindi' ? 'hi' : 'en',
+    language.startsWith('Hindi')
+  ? 'hi'
+  : language.startsWith('Punjabi')
+  ? 'pa'
+  : language.startsWith('Kannada')
+  ? 'unknown'
+  : language.startsWith('Haryanvi')
+  ? 'unknown'
+  : 'en',
   format: 'mp3'
 }
     };
