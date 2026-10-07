@@ -1059,17 +1059,39 @@ app.post('/generate-music', async (request, response) => {
       body.audio_config.duration = Math.max(10, Math.min(600, duration));
     }
 
-    const aceResponse = await fetch(
-      'https://api.acemusic.ai/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      }
+    let aceResponse;
+
+for (let attempt = 1; attempt <= 3; attempt++) {
+    aceResponse = await fetch(
+        'https://api.acemusic.ai/v1/chat/completions',
+        {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        }
     );
+
+    const shouldRetry =
+        [502, 503, 504].includes(aceResponse.status) &&
+        attempt < 3;
+
+    if (!shouldRetry) {
+        break;
+    }
+
+    await aceResponse.arrayBuffer().catch(() => {});
+
+    console.log(
+        `ACEMusic temporary error ${aceResponse.status}. Retry ${attempt}/2...`
+    );
+
+    await new Promise(resolve =>
+        setTimeout(resolve, attempt * 5000)
+    );
+}
 
     if (!aceResponse.ok) {
   const raw = await aceResponse.text();
