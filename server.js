@@ -992,7 +992,7 @@ app.post('/generate-music', async (request, response) => {
             `<lyrics>${instrumental ? '[inst]' : generationLyrics}</lyrics>`
         }
       ],
-      stream: false,
+      stream: true,
       thinking: true,
       temperature: alternate ? 1.0 : 0.85,
       top_p: 0.9,
@@ -1027,28 +1027,71 @@ app.post('/generate-music', async (request, response) => {
       }
     );
 
-    const raw = await aceResponse.text();
+    if (!aceResponse.ok) {
+  const raw = await aceResponse.text();
 
-let data;
+  let errorMessage =
+    `ACEMusic returned HTTP ${aceResponse.status}: ${raw.slice(0, 250)}`;
 
-try {
-  data = JSON.parse(raw);
-} catch (_) {
-  throw new Error(
-    `ACEMusic returned HTTP ${aceResponse.status}: ${raw.slice(0, 250)}`
-  );
+  try {
+    const errorData = JSON.parse(raw);
+    errorMessage =
+      errorData?.error?.message ||
+      errorData?.error ||
+      errorMessage;
+  } catch (_) {}
+
+  throw new Error(errorMessage);
 }
 
-    if (!aceResponse.ok) {
-      throw new Error(
-        data?.error?.message ||
-        data?.error ||
-        `ACEMusic request failed with HTTP ${aceResponse.status}`
-      );
+if (!aceResponse.body) {
+  throw new Error('ACEMusic returned an empty streaming response.');
+}
+
+const reader = aceResponse.body.getReader();
+const decoder = new TextDecoder();
+
+let buffer = '';
+let audioUrl = null;
+let content = '';
+
+while (true) {
+  const { done, value } = await reader.read();
+
+  if (value) {
+    buffer += decoder.decode(value, { stream: !done });
+  }
+
+  const lines = buffer.split(/\r?\n/);
+  buffer = lines.pop() || '';
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!trimmed.startsWith('data: ')) continue;
+
+    const payload = trimmed.slice(6).trim();
+
+    if (!payload || payload === '[DONE]') continue;
+
+    const chunk = JSON.parse(payload);
+    const delta = chunk?.choices?.[0]?.delta;
+
+    if (delta?.content && delta.content !== '.') {
+      content += delta.content;
     }
 
-    const message = data?.choices?.[0]?.message;
-    const audioUrl = message?.audio?.[0]?.audio_url?.url;
+    if (delta?.audio?.[0]?.audio_url?.url) {
+      audioUrl = delta.audio[0].audio_url.url;
+    }
+  }
+
+  if (done) break;
+}
+
+const message = {
+  content
+};
 
     if (!audioUrl || !audioUrl.includes(',')) {
       throw new Error('ACEMusic did not return playable audio.');
