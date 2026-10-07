@@ -68,6 +68,20 @@ const WHISPER_MODEL =
     .GROQ_WHISPER_MODEL ||
   'whisper-large-v3-turbo';
 
+
+function sleep(
+  milliseconds
+) {
+  return new Promise(
+    resolve =>
+      setTimeout(
+        resolve,
+        milliseconds
+      )
+  );
+}
+
+
 function stripFence(
   text = ''
 ) {
@@ -84,6 +98,7 @@ function stripFence(
     .trim();
 }
 
+
 function parseJsonLoose(
   text = ''
 ) {
@@ -92,9 +107,11 @@ function parseJsonLoose(
     stripFence(text);
 
   try {
+
     return JSON.parse(
       clean
     );
+
   } catch {}
 
   const start =
@@ -124,6 +141,7 @@ function parseJsonLoose(
     'AI did not return valid JSON.'
   );
 }
+
 
 async function chatText(
   system,
@@ -163,6 +181,7 @@ async function chatText(
     ''
   ).trim();
 }
+
 
 async function chatJson(
   system,
@@ -226,6 +245,7 @@ async function chatJson(
   );
 }
 
+
 const asArray =
   value =>
     Array.isArray(
@@ -234,12 +254,18 @@ const asArray =
       ? value
       : [];
 
+
 const previousTitles =
   value =>
     asArray(value)
       .slice(-120)
       .map(String)
       .join(' | ');
+
+
+/* =========================================================
+   ROOT
+   ========================================================= */
 
 app.get(
   '/',
@@ -262,6 +288,11 @@ app.get(
     });
   }
 );
+
+
+/* =========================================================
+   GENERATE LYRICS
+   ========================================================= */
 
 app.post(
   '/generate-lyrics',
@@ -297,23 +328,31 @@ app.post(
       }
 
       const romanHindi =
-  language === 'Hindi (Roman)'
-    ? 'Write Hindi-language lyrics only in natural Roman/English letters. Never use Devanagari script.'
-    : language === 'Hindi (Devanagari)'
-    ? 'Write Hindi-language lyrics only in natural Devanagari script.'
-    : language === 'Kannada (Roman)'
-    ? 'Write Kannada-language lyrics only in natural Roman/English transliteration. Never use Kannada script.'
-    : language === 'Kannada (Native)'
-    ? 'Write Kannada-language lyrics only in Kannada script.'
-    : language === 'Punjabi (Roman)'
-    ? 'Write Punjabi-language lyrics only in natural Roman/English transliteration. Never use Gurmukhi script.'
-    : language === 'Punjabi (Gurmukhi)'
-    ? 'Write Punjabi-language lyrics only in Gurmukhi script.'
-    : language === 'Haryanvi (Roman)'
-    ? 'Write Haryanvi-language lyrics only in natural Roman/English transliteration. Never use Devanagari script.'
-    : language === 'Haryanvi (Devanagari)'
-    ? 'Write Haryanvi-language lyrics only in Devanagari script.'
-    : '';
+        language ===
+        'Hindi (Roman)'
+          ? 'Write Hindi-language lyrics only in natural Roman/English letters. Never use Devanagari script.'
+          : language ===
+            'Hindi (Devanagari)'
+            ? 'Write Hindi-language lyrics only in natural Devanagari script.'
+            : language ===
+              'Kannada (Roman)'
+              ? 'Write Kannada-language lyrics only in natural Roman/English transliteration. Never use Kannada script.'
+              : language ===
+                'Kannada (Native)'
+                ? 'Write Kannada-language lyrics only in Kannada script.'
+                : language ===
+                  'Punjabi (Roman)'
+                  ? 'Write Punjabi-language lyrics only in natural Roman/English transliteration. Never use Gurmukhi script.'
+                  : language ===
+                    'Punjabi (Gurmukhi)'
+                    ? 'Write Punjabi-language lyrics only in Gurmukhi script.'
+                    : language ===
+                      'Haryanvi (Roman)'
+                      ? 'Write Haryanvi-language lyrics only in natural Roman/English transliteration. Never use Devanagari script.'
+                      : language ===
+                        'Haryanvi (Devanagari)'
+                        ? 'Write Haryanvi-language lyrics only in Devanagari script.'
+                        : '';
 
       const lyrics =
         await chatText(
@@ -373,6 +412,11 @@ Requirements:
   }
 );
 
+
+/* =========================================================
+   IMPROVE LYRICS
+   ========================================================= */
+
 app.post(
   '/improve-lyrics',
   async (
@@ -410,24 +454,32 @@ app.post(
           'Improve the selection'
         );
 
-      const romanHindi =
-  language === 'Hindi (Roman)'
-    ? 'Use natural Roman/English Hindi only. Never use Devanagari.'
-    : language === 'Hindi (Devanagari)'
-    ? 'Use natural Hindi in Devanagari script only.'
-    : language === 'Kannada (Roman)'
-    ? 'Use natural Kannada transliterated only in Roman/English letters. Never use Kannada script.'
-    : language === 'Kannada (Native)'
-    ? 'Use natural Kannada script only.'
-    : language === 'Punjabi (Roman)'
-    ? 'Use natural Punjabi transliterated only in Roman/English letters. Never use Gurmukhi.'
-    : language === 'Punjabi (Gurmukhi)'
-    ? 'Use natural Punjabi in Gurmukhi script only.'
-    : language === 'Haryanvi (Roman)'
-    ? 'Use natural Haryanvi transliterated only in Roman/English letters. Never use Devanagari.'
-    : language === 'Haryanvi (Devanagari)'
-    ? 'Use natural Haryanvi in Devanagari script only.'
-    : '';
+      const languageInstruction =
+        language ===
+        'Hindi (Roman)'
+          ? 'Use natural Roman/English Hindi only. Never use Devanagari.'
+          : language ===
+            'Hindi (Devanagari)'
+            ? 'Use natural Hindi in Devanagari script only.'
+            : language ===
+              'Kannada (Roman)'
+              ? 'Use natural Kannada transliterated only in Roman/English letters. Never use Kannada script.'
+              : language ===
+                'Kannada (Native)'
+                ? 'Use natural Kannada script only.'
+                : language ===
+                  'Punjabi (Roman)'
+                  ? 'Use natural Punjabi transliterated only in Roman/English letters. Never use Gurmukhi.'
+                  : language ===
+                    'Punjabi (Gurmukhi)'
+                    ? 'Use natural Punjabi in Gurmukhi script only.'
+                    : language ===
+                      'Haryanvi (Roman)'
+                      ? 'Use natural Haryanvi transliterated only in Roman/English letters. Never use Devanagari.'
+                      : language ===
+                        'Haryanvi (Devanagari)'
+                        ? 'Use natural Haryanvi in Devanagari script only.'
+                        : '';
 
       const improvedText =
         await chatText(
@@ -445,7 +497,7 @@ context-aware and consistent with the song.
 Language:
 ${language}
 
-${romanHindi}
+${languageInstruction}
 
 Instruction:
 ${instruction}
@@ -474,6 +526,12 @@ ${lyrics}
     }
   }
 );
+
+
+/* =========================================================
+   WORD SUGGESTIONS
+   ========================================================= */
+
 app.post(
   '/suggest-words',
   async (
@@ -544,7 +602,15 @@ Every option must fit:
 - Song flow
 - Selected language
 
-Selected language option: ${language}. Follow its script exactly: Roman options must use Roman/English letters, and native-script options must use their selected native script.
+Selected language option:
+${language}
+
+Follow its script exactly.
+
+Roman options must use Roman/English letters.
+
+Native-script options must use
+their selected native script.
 
 Return:
 
@@ -591,6 +657,11 @@ Return:
     }
   }
 );
+
+
+/* =========================================================
+   AI COACH
+   ========================================================= */
 
 app.post(
   '/ai-coach',
@@ -735,6 +806,11 @@ Return:
     }
   }
 );
+
+
+/* =========================================================
+   MUSIC RECOMMENDATIONS
+   ========================================================= */
 
 const musicShape =
 `
@@ -956,236 +1032,884 @@ Return:
     }
   }
 );
-app.post('/generate-music', async (request, response) => {
-  try {
-    const apiKey = process.env.ACEMUSIC_API_KEY;
 
-    if (!apiKey) {
-      return response.status(500).json({
-        error: 'ACEMUSIC_API_KEY is not configured.'
-      });
-    }
 
-    const lyrics = String(request.body.lyrics || '').trim();
-    const language = String(request.body.language || 'English').trim();
-    const prompt = String(request.body.prompt || '').trim();
-    const bpm = Number(request.body.bpm || 0);
-    const duration = Number(request.body.duration || 0);
-    const instrumental = Boolean(request.body.instrumental);
-    const alternate = Boolean(request.body.alternate);
+/* =========================================================
+   ACE MUSIC GENERATION
+   ========================================================= */
 
-    if (!lyrics && !instrumental) {
-      return response.status(400).json({
-        error: 'Lyrics are required.'
-      });
-    }
+app.post(
+  '/generate-music',
+  async (
+    request,
+    response
+  ) => {
 
-    let generationLyrics = lyrics;
+    try {
 
-    if (
-  [
-    'Hindi (Roman)',
-    'Kannada (Roman)',
-    'Punjabi (Roman)',
-    'Haryanvi (Roman)'
-  ].includes(language) &&
-  lyrics &&
-  /[A-Za-z]/.test(lyrics)
-) {
-  const targetScript =
-    language === 'Hindi (Roman)'
-      ? 'natural Devanagari Hindi'
-      : language === 'Kannada (Roman)'
-      ? 'natural Kannada script'
-      : language === 'Punjabi (Roman)'
-      ? 'natural Gurmukhi Punjabi'
-      : 'natural Devanagari Haryanvi';
+      const apiKey =
+        process.env
+          .ACEMUSIC_API_KEY;
 
-  generationLyrics = await chatText(
-    `Convert these Roman-script ${language.replace(' (Roman)', '')} song lyrics into ${targetScript} for accurate singing pronunciation. Preserve section labels such as [Intro], [Verse], [Chorus], [Bridge], [Rap Verse] and [Outro]. Return only the converted lyrics.`,
-    lyrics,
-    0.2
-  );
-}
-      
+      if (!apiKey) {
 
-    let finalPrompt =
-      prompt ||
-      'High-end cinematic commercial music, realistic instruments, evolving arrangement, strong verse and chorus contrast, professional mixing and mastering, wide stereo depth and release-ready production.';
+        return response
+          .status(500)
+          .json({
+            error:
+              'ACEMUSIC_API_KEY is not configured.'
+          });
+      }
 
-    if (alternate) {
-      finalPrompt +=
-        ' Create a genuinely different melody, rhythm, arrangement, instrumentation and musical interpretation from the previous version.';
-    }
+      const lyrics =
+        String(
+          request.body
+            .lyrics ||
+          ''
+        ).trim();
 
-    const body = {
-      model: 'acemusic/acestep-v1.5-turbo',
-      messages: [
-        {
-          role: 'user',
-          content:
-            `<prompt>${finalPrompt}</prompt>\n` +
-            `<lyrics>${instrumental ? '[inst]' : generationLyrics}</lyrics>`
+      const language =
+        String(
+          request.body
+            .language ||
+          'English'
+        ).trim();
+
+      const prompt =
+        String(
+          request.body
+            .prompt ||
+          ''
+        ).trim();
+
+      const bpm =
+        Number(
+          request.body
+            .bpm ||
+          0
+        );
+
+      const duration =
+        Number(
+          request.body
+            .duration ||
+          0
+        );
+
+      const instrumental =
+        Boolean(
+          request.body
+            .instrumental
+        );
+
+      const alternate =
+        Boolean(
+          request.body
+            .alternate
+        );
+
+      if (
+        !lyrics &&
+        !instrumental
+      ) {
+
+        return response
+          .status(400)
+          .json({
+            error:
+              'Lyrics are required.'
+          });
+      }
+
+
+      /* ---------------------------------------------
+         Convert Roman lyrics only for singing engine
+         --------------------------------------------- */
+
+      let generationLyrics =
+        lyrics;
+
+      if (
+        [
+          'Hindi (Roman)',
+          'Kannada (Roman)',
+          'Punjabi (Roman)',
+          'Haryanvi (Roman)'
+        ].includes(
+          language
+        ) &&
+        lyrics &&
+        /[A-Za-z]/.test(
+          lyrics
+        )
+      ) {
+
+        const targetScript =
+          language ===
+          'Hindi (Roman)'
+            ? 'natural Devanagari Hindi'
+            : language ===
+              'Kannada (Roman)'
+              ? 'natural Kannada script'
+              : language ===
+                'Punjabi (Roman)'
+                ? 'natural Gurmukhi Punjabi'
+                : 'natural Devanagari Haryanvi';
+
+        generationLyrics =
+          await chatText(
+            `
+Convert these Roman-script ${language.replace(
+              ' (Roman)',
+              ''
+            )} song lyrics into ${targetScript}
+for accurate singing pronunciation.
+
+Preserve section labels such as:
+
+[Intro]
+[Verse]
+[Verse 1]
+[Verse 2]
+[Pre-Chorus]
+[Chorus]
+[Bridge]
+[Rap Verse]
+[Final Chorus]
+[Outro]
+
+Return only the converted lyrics.
+            `,
+            lyrics,
+            0.2
+          );
+      }
+
+
+      /* ---------------------------------------------
+         Music prompt
+         --------------------------------------------- */
+
+      let finalPrompt =
+        prompt ||
+        `
+High-end cinematic commercial music.
+
+Use realistic instruments,
+evolving arrangement,
+strong verse and chorus contrast,
+professional mixing and mastering,
+wide stereo depth,
+natural dynamics,
+musical transitions,
+fills,
+drops,
+section development,
+and release-ready production.
+
+The music must evolve throughout the song
+rather than sounding like a repeated loop.
+        `.trim();
+
+      if (
+        alternate
+      ) {
+
+        finalPrompt +=
+          `
+Create a genuinely different musical version.
+
+Use a different:
+
+- Melody
+- Rhythm
+- Arrangement
+- Instrumentation
+- Musical interpretation
+- Section development
+- Transitions
+
+Do not simply repeat the previous version.
+          `;
+      }
+
+
+      /* ---------------------------------------------
+         ACE request body
+
+         IMPORTANT:
+         thinking = false
+         CoT caption/language = false
+
+         This removes unnecessary extra processing
+         before long music generation.
+         --------------------------------------------- */
+
+      const body = {
+
+        model:
+          'acemusic/acestep-v1.5-turbo',
+
+        messages: [
+          {
+            role:
+              'user',
+
+            content:
+              `<prompt>${finalPrompt}</prompt>\n` +
+              `<lyrics>${
+                instrumental
+                  ? '[inst]'
+                  : generationLyrics
+              }</lyrics>`
+          }
+        ],
+
+        stream:
+          true,
+
+        thinking:
+          false,
+
+        temperature:
+          alternate
+            ? 1.0
+            : 0.85,
+
+        top_p:
+          0.9,
+
+        use_format:
+          false,
+
+        use_cot_caption:
+          false,
+
+        use_cot_language:
+          false,
+
+        audio_config: {
+
+          instrumental:
+            instrumental,
+
+          vocal_language:
+            language.startsWith(
+              'Hindi'
+            )
+              ? 'hi'
+              : language.startsWith(
+                  'Punjabi'
+                )
+                ? 'pa'
+                : language.startsWith(
+                    'Kannada'
+                  )
+                  ? 'unknown'
+                  : language.startsWith(
+                      'Haryanvi'
+                    )
+                    ? 'unknown'
+                    : 'en',
+
+          format:
+            'mp3'
         }
-      ],
-      stream: true,
-      thinking: true,
-      temperature: alternate ? 1.0 : 0.85,
-      top_p: 0.9,
-      use_format: false,
-      use_cot_caption: true,
-      use_cot_language: true,
-      audio_config: {
-  instrumental: instrumental,
-  vocal_language:
-    language.startsWith('Hindi')
-  ? 'hi'
-  : language.startsWith('Punjabi')
-  ? 'pa'
-  : language.startsWith('Kannada')
-  ? 'unknown'
-  : language.startsWith('Haryanvi')
-  ? 'unknown'
-  : 'en',
-  format: 'mp3'
-}
-    };
+      };
 
-    if (bpm >= 30 && bpm <= 300) {
-      body.audio_config.bpm = Math.round(bpm);
-    }
 
-    if (duration > 0) {
-      body.audio_config.duration = Math.max(10, Math.min(600, duration));
-    }
+      if (
+        bpm >= 30 &&
+        bpm <= 300
+      ) {
 
-    let aceResponse;
+        body
+          .audio_config
+          .bpm =
+            Math.round(
+              bpm
+            );
+      }
 
-for (let attempt = 1; attempt <= 3; attempt++) {
-    aceResponse = await fetch(
-        'https://api.acemusic.ai/v1/chat/completions',
-        {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
+
+      /*
+       * The Android app currently requests
+       * 130–300 seconds.
+       *
+       * Keep the backend capped at 300 seconds
+       * so an accidental larger request does not
+       * create an even heavier generation job.
+       */
+
+      if (
+        duration > 0
+      ) {
+
+        body
+          .audio_config
+          .duration =
+            Math.max(
+              10,
+              Math.min(
+                300,
+                Math.round(
+                  duration
+                )
+              )
+            );
+      }
+
+
+      /* ---------------------------------------------
+         ACE retry logic
+         --------------------------------------------- */
+
+      const MAX_ACE_ATTEMPTS =
+        3;
+
+      const RETRYABLE_STATUS =
+        [
+          429,
+          502,
+          503,
+          504
+        ];
+
+      let aceResponse =
+        null;
+
+      let lastFetchError =
+        null;
+
+
+      for (
+        let attempt = 1;
+        attempt <=
+        MAX_ACE_ATTEMPTS;
+        attempt++
+      ) {
+
+        try {
+
+          console.log(
+            `ACEMusic generation attempt ${attempt}/${MAX_ACE_ATTEMPTS}`
+          );
+
+          aceResponse =
+            await fetch(
+              'https://api.acemusic.ai/v1/chat/completions',
+              {
+                method:
+                  'POST',
+
+                headers: {
+
+                  Authorization:
+                    `Bearer ${apiKey}`,
+
+                  'Content-Type':
+                    'application/json'
+                },
+
+                body:
+                  JSON.stringify(
+                    body
+                  )
+              }
+            );
+
+          lastFetchError =
+            null;
+
+        } catch (
+          fetchError
+        ) {
+
+          lastFetchError =
+            fetchError;
+
+          console.error(
+            `ACEMusic network error on attempt ${attempt}:`,
+            fetchError
+          );
+
+          if (
+            attempt >=
+            MAX_ACE_ATTEMPTS
+          ) {
+
+            break;
+          }
+
+          const delay =
+            attempt *
+            8000;
+
+          console.log(
+            `Retrying ACEMusic after ${delay / 1000} seconds...`
+          );
+
+          await sleep(
+            delay
+          );
+
+          continue;
         }
-    );
 
-    const shouldRetry =
-        [502, 503, 504].includes(aceResponse.status) &&
-        attempt < 3;
 
-    if (!shouldRetry) {
-        break;
+        if (
+          aceResponse.ok
+        ) {
+
+          break;
+        }
+
+
+        const shouldRetry =
+          RETRYABLE_STATUS.includes(
+            aceResponse.status
+          ) &&
+          attempt <
+          MAX_ACE_ATTEMPTS;
+
+
+        if (
+          !shouldRetry
+        ) {
+
+          break;
+        }
+
+
+        /*
+         * Consume failed body before next retry.
+         */
+
+        await aceResponse
+          .arrayBuffer()
+          .catch(
+            () => {}
+          );
+
+
+        const delay =
+          attempt *
+          8000;
+
+
+        console.log(
+          `ACEMusic temporary HTTP ${aceResponse.status}. ` +
+          `Retry ${attempt + 1}/${MAX_ACE_ATTEMPTS} ` +
+          `in ${delay / 1000} seconds.`
+        );
+
+
+        await sleep(
+          delay
+        );
+      }
+
+
+      /* ---------------------------------------------
+         Network failure
+         --------------------------------------------- */
+
+      if (
+        !aceResponse
+      ) {
+
+        throw new Error(
+          lastFetchError
+            ?.message ||
+          'Unable to connect to ACEMusic.'
+        );
+      }
+
+
+      /* ---------------------------------------------
+         Provider HTTP failure
+         --------------------------------------------- */
+
+      if (
+        !aceResponse.ok
+      ) {
+
+        const providerStatus =
+          aceResponse.status;
+
+        let raw =
+          '';
+
+        try {
+
+          raw =
+            await aceResponse
+              .text();
+
+        } catch {}
+
+
+        let providerMessage =
+          '';
+
+        try {
+
+          const errorData =
+            JSON.parse(
+              raw
+            );
+
+          providerMessage =
+            String(
+              errorData
+                ?.error
+                ?.message ||
+              errorData
+                ?.error ||
+              ''
+            );
+
+        } catch {}
+
+
+        console.error(
+          'ACEMusic provider failure:',
+          {
+            status:
+              providerStatus,
+            providerMessage,
+            rawPreview:
+              raw.slice(
+                0,
+                300
+              )
+          }
+        );
+
+
+        if (
+          providerStatus ===
+          504
+        ) {
+
+          return response
+            .status(504)
+            .json({
+              error:
+                'ACEMusic temporarily timed out while generating the track. The app already retried automatically. Please try generating again.',
+              providerStatus:
+                504
+            });
+        }
+
+
+        if (
+          providerStatus ===
+          429
+        ) {
+
+          return response
+            .status(503)
+            .json({
+              error:
+                'ACEMusic is temporarily rate-limited or busy. Please try again shortly.',
+              providerStatus:
+                429
+            });
+        }
+
+
+        if (
+          providerStatus ===
+          502 ||
+          providerStatus ===
+          503
+        ) {
+
+          return response
+            .status(503)
+            .json({
+              error:
+                'ACEMusic is temporarily unavailable. The app already retried automatically. Please try again.',
+              providerStatus:
+                providerStatus
+            });
+        }
+
+
+        return response
+          .status(502)
+          .json({
+            error:
+              providerMessage ||
+              `ACEMusic returned HTTP ${providerStatus}.`,
+            providerStatus
+          });
+      }
+
+
+      /* ---------------------------------------------
+         Streaming response
+         --------------------------------------------- */
+
+      if (
+        !aceResponse.body
+      ) {
+
+        throw new Error(
+          'ACEMusic returned an empty streaming response.'
+        );
+      }
+
+
+      const reader =
+        aceResponse
+          .body
+          .getReader();
+
+      const decoder =
+        new TextDecoder();
+
+
+      let buffer =
+        '';
+
+      let audioUrl =
+        null;
+
+      let content =
+        '';
+
+
+      while (
+        true
+      ) {
+
+        const {
+          done,
+          value
+        } =
+          await reader
+            .read();
+
+
+        if (
+          value
+        ) {
+
+          buffer +=
+            decoder.decode(
+              value,
+              {
+                stream:
+                  !done
+              }
+            );
+        }
+
+
+        const lines =
+          buffer.split(
+            /\r?\n/
+          );
+
+        buffer =
+          lines.pop() ||
+          '';
+
+
+        for (
+          const line
+          of lines
+        ) {
+
+          const trimmed =
+            line.trim();
+
+
+          if (
+            !trimmed
+              .startsWith(
+                'data: '
+              )
+          ) {
+
+            continue;
+          }
+
+
+          const payload =
+            trimmed
+              .slice(6)
+              .trim();
+
+
+          if (
+            !payload ||
+            payload ===
+            '[DONE]'
+          ) {
+
+            continue;
+          }
+
+
+          let chunk;
+
+          try {
+
+            chunk =
+              JSON.parse(
+                payload
+              );
+
+          } catch {
+
+            continue;
+          }
+
+
+          const delta =
+            chunk
+              ?.choices
+              ?.[0]
+              ?.delta;
+
+
+          if (
+            delta
+              ?.content &&
+            delta
+              .content !==
+            '.'
+          ) {
+
+            content +=
+              delta
+                .content;
+          }
+
+
+          if (
+            delta
+              ?.audio
+              ?.[0]
+              ?.audio_url
+              ?.url
+          ) {
+
+            audioUrl =
+              delta
+                .audio[0]
+                .audio_url
+                .url;
+          }
+        }
+
+
+        if (
+          done
+        ) {
+
+          break;
+        }
+      }
+
+
+      /* ---------------------------------------------
+         Extract base64 audio
+         --------------------------------------------- */
+
+      if (
+        !audioUrl ||
+        !audioUrl.includes(
+          ','
+        )
+      ) {
+
+        throw new Error(
+          'ACEMusic did not return playable audio.'
+        );
+      }
+
+
+      const commaIndex =
+        audioUrl.indexOf(
+          ','
+        );
+
+
+      const header =
+        audioUrl.substring(
+          0,
+          commaIndex
+        );
+
+
+      const audioBase64 =
+        audioUrl.substring(
+          commaIndex + 1
+        );
+
+
+      const mimeMatch =
+        header.match(
+          /^data:([^;]+);base64$/
+        );
+
+
+      const mimeType =
+        mimeMatch?.[1] ||
+        'audio/mpeg';
+
+
+      response.json({
+        success:
+          true,
+
+        audioBase64,
+
+        mimeType,
+
+        details:
+          content ||
+          '',
+
+        lyricsUsed:
+          generationLyrics,
+
+        durationRequested:
+          body
+            .audio_config
+            .duration ||
+          null
+      });
+
+    } catch (
+      error
+    ) {
+
+      console.error(
+        'ACEMusic generation error:',
+        error
+      );
+
+      response
+        .status(500)
+        .json({
+          error:
+            error
+              ?.message ||
+            'Music generation failed.'
+        });
     }
-
-    await aceResponse.arrayBuffer().catch(() => {});
-
-    console.log(
-        `ACEMusic temporary error ${aceResponse.status}. Retry ${attempt}/2...`
-    );
-
-    await new Promise(resolve =>
-        setTimeout(resolve, attempt * 5000)
-    );
-}
-
-    if (!aceResponse.ok) {
-  const raw = await aceResponse.text();
-
-  let errorMessage =
-    `ACEMusic returned HTTP ${aceResponse.status}: ${raw.slice(0, 250)}`;
-
-  try {
-    const errorData = JSON.parse(raw);
-    errorMessage =
-      errorData?.error?.message ||
-      errorData?.error ||
-      errorMessage;
-  } catch (_) {}
-
-  throw new Error(errorMessage);
-}
-
-if (!aceResponse.body) {
-  throw new Error('ACEMusic returned an empty streaming response.');
-}
-
-const reader = aceResponse.body.getReader();
-const decoder = new TextDecoder();
-
-let buffer = '';
-let audioUrl = null;
-let content = '';
-
-while (true) {
-  const { done, value } = await reader.read();
-
-  if (value) {
-    buffer += decoder.decode(value, { stream: !done });
   }
+);
 
-  const lines = buffer.split(/\r?\n/);
-  buffer = lines.pop() || '';
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (!trimmed.startsWith('data: ')) continue;
-
-    const payload = trimmed.slice(6).trim();
-
-    if (!payload || payload === '[DONE]') continue;
-
-    const chunk = JSON.parse(payload);
-    const delta = chunk?.choices?.[0]?.delta;
-
-    if (delta?.content && delta.content !== '.') {
-      content += delta.content;
-    }
-
-    if (delta?.audio?.[0]?.audio_url?.url) {
-      audioUrl = delta.audio[0].audio_url.url;
-    }
-  }
-
-  if (done) break;
-}
-
-const message = {
-  content
-};
-
-    if (!audioUrl || !audioUrl.includes(',')) {
-      throw new Error('ACEMusic did not return playable audio.');
-    }
-
-    const commaIndex = audioUrl.indexOf(',');
-    const header = audioUrl.substring(0, commaIndex);
-    const audioBase64 = audioUrl.substring(commaIndex + 1);
-
-    const mimeMatch = header.match(/^data:([^;]+);base64$/);
-    const mimeType = mimeMatch?.[1] || 'audio/mpeg';
-
-    response.json({
-      success: true,
-      audioBase64,
-      mimeType,
-      details: message?.content || '',
-      lyricsUsed: generationLyrics
-    });
-
-  } catch (error) {
-    console.error('ACEMusic generation error:', error);
-
-    response.status(500).json({
-      error: error.message || 'Music generation failed.'
-    });
-  }
-});
+/* =========================================================
+   ANALYZE SONG
+   ========================================================= */
 
 app.post(
   '/analyze-song',
@@ -1202,7 +1926,9 @@ app.post(
 
     try {
 
-      if (!file) {
+      if (
+        !file
+      ) {
 
         return response
           .status(400)
@@ -1211,6 +1937,7 @@ app.post(
               'Audio file required.'
           });
       }
+
 
       const transcription =
         await groq
@@ -1221,11 +1948,14 @@ app.post(
               fs.createReadStream(
                 file.path
               ),
+
             model:
               WHISPER_MODEL,
+
             response_format:
               'json'
           });
+
 
       const transcript =
         String(
@@ -1234,18 +1964,23 @@ app.post(
           ''
         ).trim();
 
-      if (!transcript) {
+
+      if (
+        !transcript
+      ) {
 
         throw new Error(
           'No speech/lyrics could be transcribed.'
         );
       }
 
+
       const analysis =
         await chatJson(
           `
 You are a professional song analyst,
-music producer, lyric interpreter
+music producer,
+lyric interpreter
 and music-video director.
 
 Return strict JSON only.
@@ -1273,7 +2008,8 @@ Analyze:
 Important:
 
 Do NOT invent an exact BPM,
-musical key or scale from transcript alone.
+musical key or scale
+from transcript alone.
 
 Return:
 
@@ -1299,12 +2035,15 @@ Return:
           0.40
         );
 
+
       response.json({
         transcript,
         analysis
       });
 
-    } catch (error) {
+    } catch (
+      error
+    ) {
 
       response
         .status(500)
@@ -1331,6 +2070,11 @@ Return:
   }
 );
 
+
+/* =========================================================
+   VIDEO RECOMMENDATION SHAPE
+   ========================================================= */
+
 const videoShape =
 `
 {
@@ -1356,6 +2100,11 @@ const videoShape =
   "storyboardDirection": "..."
 }
 `;
+
+
+/* =========================================================
+   VIDEO RECOMMENDATIONS
+   ========================================================= */
 
 app.post(
   '/video-recommendations',
@@ -1403,7 +2152,10 @@ app.post(
           )
         );
 
-      if (!lyrics) {
+
+      if (
+        !lyrics
+      ) {
 
         return response
           .status(400)
@@ -1412,6 +2164,7 @@ app.post(
               'Lyrics/transcript required.'
           });
       }
+
 
       const modeInstruction =
         requestedMode ===
@@ -1430,6 +2183,7 @@ All recommendations must primarily follow:
 
 ${requestedMode}
 `;
+
 
       const result =
         await chatJson(
@@ -1517,27 +2271,35 @@ ${page + 1}
 
 Do not repeat:
 
-${previousTitles(request.body.exclude) || 'none'}
+${previousTitles(
+  request.body
+    .exclude
+) || 'none'}
           `,
           0.72
         );
+
 
       response.json({
         best:
           result.best ||
           null,
+
         suggestions:
           asArray(
             result
               .suggestions
           ),
+
         hasMore:
           result
             .hasMore !==
           false
       });
 
-    } catch (error) {
+    } catch (
+      error
+    ) {
 
       response
         .status(500)
@@ -1548,11 +2310,11 @@ ${previousTitles(request.body.exclude) || 'none'}
     }
   }
 );
-/*
- * Additional video-mode guidance.
- * These concepts are used by the AI prompt
- * through the video recommendation endpoint.
- */
+
+
+/* =========================================================
+   VIDEO MODE GUIDANCE
+   ========================================================= */
 
 const cinematicBollywoodGuide =
 `
@@ -1578,6 +2340,7 @@ For CINEMATIC_BOLLYWOOD explore only when suitable:
 
 Use original characters and original story ideas.
 `;
+
 
 const animeGuide =
 `
@@ -1619,6 +2382,7 @@ Maintain:
 across scenes unless a costume change is intentional.
 `;
 
+
 const animeBollywoodGuide =
 `
 For ANIME_BOLLYWOOD_FUSION combine:
@@ -1646,6 +2410,11 @@ For ANIME_BOLLYWOOD_FUSION combine:
 
 Maintain character identity across all scenes.
 `;
+
+
+/* =========================================================
+   EDIT VIDEO PLAN
+   ========================================================= */
 
 app.post(
   '/edit-video-plan',
@@ -1685,7 +2454,10 @@ app.post(
           'CINEMATIC_BOLLYWOOD'
         );
 
-      if (!command) {
+
+      if (
+        !command
+      ) {
 
         return response
           .status(400)
@@ -1694,6 +2466,7 @@ app.post(
               'Edit command required.'
           });
       }
+
 
       const modeGuide =
         mode ===
@@ -1704,6 +2477,7 @@ app.post(
             ? animeBollywoodGuide
             : cinematicBollywoodGuide;
 
+
       const updated =
         await chatJson(
           `
@@ -1711,7 +2485,8 @@ You are an AI music-video editor.
 
 Apply ONLY the user's requested change.
 
-Preserve everything the user did not ask to change.
+Preserve everything the user
+did not ask to change.
 
 Preserve:
 
@@ -1750,7 +2525,9 @@ ${command}
 
 Current video plan:
 
-${JSON.stringify(current)}
+${JSON.stringify(
+  current
+)}
 
 Lyrics/transcript:
 
@@ -1765,13 +2542,16 @@ ${videoShape}
           0.55
         );
 
+
       response.json({
         updated:
           updated.updated ||
           updated
       });
 
-    } catch (error) {
+    } catch (
+      error
+    ) {
 
       response
         .status(500)
@@ -1782,6 +2562,11 @@ ${videoShape}
     }
   }
 );
+
+
+/* =========================================================
+   STORYBOARD
+   ========================================================= */
 
 app.post(
   '/storyboard',
@@ -1811,7 +2596,10 @@ app.post(
           .concept ||
         {};
 
-      if (!lyrics) {
+
+      if (
+        !lyrics
+      ) {
 
         return response
           .status(400)
@@ -1821,6 +2609,7 @@ app.post(
           });
       }
 
+
       const modeGuide =
         mode ===
         'FULL_ANIME'
@@ -1829,6 +2618,7 @@ app.post(
             'ANIME_BOLLYWOOD_FUSION'
             ? animeBollywoodGuide
             : cinematicBollywoodGuide;
+
 
       const result =
         await chatJson(
@@ -1854,13 +2644,16 @@ ${modeGuide}
 
 Chosen concept:
 
-${JSON.stringify(concept)}
+${JSON.stringify(
+  concept
+)}
 
 Lyrics/transcript:
 
 ${lyrics}
 
-Create a coherent scene-by-scene storyboard.
+Create a coherent
+scene-by-scene storyboard.
 
 For anime modes:
 
@@ -1930,6 +2723,7 @@ Return:
           0.62
         );
 
+
       response.json({
         scenes:
           asArray(
@@ -1937,7 +2731,9 @@ Return:
           )
       });
 
-    } catch (error) {
+    } catch (
+      error
+    ) {
 
       response
         .status(500)
@@ -1948,9 +2744,12 @@ Return:
     }
   }
 );
-/*
- * Optional health/status route.
- */
+
+
+/* =========================================================
+   HEALTH
+   ========================================================= */
+
 app.get(
   '/health',
   (
@@ -1959,22 +2758,29 @@ app.get(
   ) => {
 
     response.json({
-      ok: true,
+      ok:
+        true,
+
       service:
         'AI Song + Music Video Studio Backend',
+
       freeFirst:
         true,
+
       textModel:
         TEXT_MODEL,
+
       transcriptionModel:
         WHISPER_MODEL
     });
   }
 );
 
-/*
- * Unknown route handler.
- */
+
+/* =========================================================
+   UNKNOWN ROUTE
+   ========================================================= */
+
 app.use(
   (
     request,
@@ -1990,9 +2796,11 @@ app.use(
   }
 );
 
-/*
- * Global error handler.
- */
+
+/* =========================================================
+   GLOBAL ERROR HANDLER
+   ========================================================= */
+
 app.use(
   (
     error,
@@ -2009,17 +2817,24 @@ app.use(
       .status(500)
       .json({
         error:
-          error?.message ||
+          error
+            ?.message ||
           'Server error'
       });
   }
 );
+
+
+/* =========================================================
+   SERVER START
+   ========================================================= */
 
 const port =
   Number(
     process.env.PORT ||
     3000
   );
+
 
 app.listen(
   port,
@@ -2039,7 +2854,7 @@ app.listen(
     );
 
     console.log(
-      'FREE-FIRST MODE: no paid provider is required by this backend.'
+      'FREE-FIRST MODE: backend started successfully.'
     );
   }
 );
