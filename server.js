@@ -1027,7 +1027,17 @@ app.post('/generate-music', async (request, response) => {
       }
     );
 
-    const data = await aceResponse.json();
+    const raw = await aceResponse.text();
+
+let data;
+
+try {
+  data = JSON.parse(raw);
+} catch (_) {
+  throw new Error(
+    `ACEMusic returned HTTP ${aceResponse.status}: ${raw.slice(0, 250)}`
+  );
+}
 
     if (!aceResponse.ok) {
       throw new Error(
