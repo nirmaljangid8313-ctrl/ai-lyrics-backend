@@ -1007,15 +1007,7 @@ app.post('/generate-music', async (request, response) => {
     0.2
   );
 }
-      lyrics &&
-      /[A-Za-z]/.test(lyrics)
-    ) {
-      generationLyrics = await chatText(
-        'Convert these Roman Hindi song lyrics into natural Devanagari Hindi for accurate singing pronunciation. Preserve section labels such as [Intro], [Verse], [Chorus], [Bridge], [Rap Verse] and [Outro]. Return only the converted lyrics.',
-        lyrics,
-        0.2
-      );
-    }
+      
 
     let finalPrompt =
       prompt ||
