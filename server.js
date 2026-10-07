@@ -935,6 +935,139 @@ Return:
     }
   }
 );
+app.post('/generate-music', async (request, response) => {
+  try {
+    const apiKey = process.env.ACEMUSIC_API_KEY;
+
+    if (!apiKey) {
+      return response.status(500).json({
+        error: 'ACEMUSIC_API_KEY is not configured.'
+      });
+    }
+
+    const lyrics = String(request.body.lyrics || '').trim();
+    const language = String(request.body.language || 'English').trim();
+    const prompt = String(request.body.prompt || '').trim();
+    const bpm = Number(request.body.bpm || 0);
+    const duration = Number(request.body.duration || 0);
+    const instrumental = Boolean(request.body.instrumental);
+    const alternate = Boolean(request.body.alternate);
+
+    if (!lyrics && !instrumental) {
+      return response.status(400).json({
+        error: 'Lyrics are required.'
+      });
+    }
+
+    let generationLyrics = lyrics;
+
+    if (
+      language.toLowerCase() === 'hindi' &&
+      lyrics &&
+      /[A-Za-z]/.test(lyrics)
+    ) {
+      generationLyrics = await chatText(
+        'Convert these Roman Hindi song lyrics into natural Devanagari Hindi for accurate singing pronunciation. Preserve section labels such as [Intro], [Verse], [Chorus], [Bridge], [Rap Verse] and [Outro]. Return only the converted lyrics.',
+        lyrics,
+        0.2
+      );
+    }
+
+    let finalPrompt =
+      prompt ||
+      'High-end cinematic commercial music, realistic instruments, evolving arrangement, strong verse and chorus contrast, professional mixing and mastering, wide stereo depth and release-ready production.';
+
+    if (alternate) {
+      finalPrompt +=
+        ' Create a genuinely different melody, rhythm, arrangement, instrumentation and musical interpretation from the previous version.';
+    }
+
+    const body = {
+      model: 'acemusic/acestep-v1.5-turbo',
+      messages: [
+        {
+          role: 'user',
+          content:
+            `<prompt>${finalPrompt}</prompt>\n` +
+            `<lyrics>${instrumental ? '[inst]' : generationLyrics}</lyrics>`
+        }
+      ],
+      stream: false,
+      thinking: true,
+      temperature: alternate ? 1.0 : 0.85,
+      top_p: 0.9,
+      use_format: false,
+      use_cot_caption: true,
+      use_cot_language: true,
+      audio_config: {
+  instrumental: instrumental,
+  vocal_language:
+    language.toLowerCase() === 'hindi' ? 'hi' : 'en',
+  format: 'mp3'
+}
+    };
+
+    if (bpm >= 30 && bpm <= 300) {
+      body.audio_config.bpm = Math.round(bpm);
+    }
+
+    if (duration > 0) {
+      body.audio_config.duration = Math.max(10, Math.min(600, duration));
+    }
+
+    const aceResponse = await fetch(
+      'https://api.acemusic.ai/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      }
+    );
+
+    const data = await aceResponse.json();
+
+    if (!aceResponse.ok) {
+      throw new Error(
+        data?.error?.message ||
+        data?.error ||
+        `ACEMusic request failed with HTTP ${aceResponse.status}`
+      );
+    }
+
+    const message = data?.choices?.[0]?.message;
+    const audioUrl = message?.audio?.[0]?.audio_url?.url;
+
+    if (!audioUrl || !audioUrl.includes(',')) {
+      throw new Error('ACEMusic did not return playable audio.');
+    }
+
+    const commaIndex = audioUrl.indexOf(',');
+    const header = audioUrl.substring(0, commaIndex);
+    const audioBase64 = audioUrl.substring(commaIndex + 1);
+
+    const mimeMatch = header.match(/^data:([^;]+);base64$/);
+    const mimeType = mimeMatch?.[1] || 'audio/mpeg';
+
+    response.json({
+      success: true,
+      audioBase64,
+      mimeType,
+      details: message?.content || '',
+      lyricsUsed: generationLyrics
+    });
+
+  } catch (error) {
+    console.error('ACEMusic generation error:', error);
+
+    response.status(500).json({
+      error: error.message || 'Music generation failed.'
+    });
+  }
+});
+
 app.post(
   '/analyze-song',
   upload.single(
