@@ -2796,10 +2796,13 @@ app.get(
     });
   }
 });
-app.post('/convert-voice', async (request, response) => {
+app.post('/convert-voice', upload.fields([
+  { name: 'source_audio', maxCount: 1 },
+  { name: 'reference_audio', maxCount: 1 }
+]), async (request, response) => {
   response.status(501).json({
     ok: false,
-    message: 'Voice conversion endpoint is being configured'
+    message: 'Audio upload fields configured; Seed-VC conversion pending'
   });
 });
 
