@@ -2796,6 +2796,13 @@ app.get(
     });
   }
 });
+app.post('/convert-voice', async (request, response) => {
+  response.status(501).json({
+    ok: false,
+    message: 'Voice conversion endpoint is being configured'
+  });
+});
+
 /*
    UNKNOWN ROUTE
    ========================================================= */
