@@ -7,6 +7,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import Groq from 'groq-sdk';
+import { Client } from '@gradio/client';
 
 const app = express();
 
@@ -2778,6 +2779,23 @@ app.get(
 
 
 /* =========================================================
+   
+   app.get('/voice-clone-test', async (_request, response) => {
+  try {
+    const client = await Client.connect('Plachta/Seed-VC');
+
+    response.json({
+      ok: true,
+      message: 'Seed-VC connection successful',
+      endpoints: client.view_api()
+    });
+  } catch (error) {
+    response.status(502).json({
+      ok: false,
+      error: String(error.message || error)
+    });
+  }
+});
    UNKNOWN ROUTE
    ========================================================= */
 
