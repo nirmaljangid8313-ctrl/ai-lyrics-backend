@@ -2787,7 +2787,7 @@ app.get(
     response.json({
       ok: true,
       message: 'Seed-VC connection successful',
-      endpoints: client.view_api()
+      endpoints: await client.view_api()
     });
   } catch (error) {
     response.status(502).json({
