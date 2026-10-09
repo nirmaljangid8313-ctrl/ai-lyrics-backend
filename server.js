@@ -7,7 +7,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import Groq from 'groq-sdk';
-import { Client } from '@gradio/client';
+import { Client, handle_file } from '@gradio/client';
 
 const app = express();
 
@@ -2800,10 +2800,58 @@ app.post('/convert-voice', upload.fields([
   { name: 'source_audio', maxCount: 1 },
   { name: 'reference_audio', maxCount: 1 }
 ]), async (request, response) => {
-  response.status(501).json({
-    ok: false,
-    message: 'Audio upload fields configured; Seed-VC conversion pending'
-  });
+  const source = request.files?.source_audio?.[0];
+  const reference = request.files?.reference_audio?.[0];
+
+  if (!source || !reference) {
+    return response.status(400).json({
+      ok: false,
+      error: 'Both source_audio and reference_audio are required'
+    });
+  }
+
+  try {
+    const client = await Client.connect('Plachta/Seed-VC');
+
+    const result = await client.predict('/predict', {
+      source_audio_path: handle_file(source.path),
+      target_audio_path: handle_file(reference.path),
+      diffusion_steps: 30,
+      length_adjust: 1.0,
+      intelligibility_cfg_rate: 0.7,
+      similarity_cfg_rate: 0.7,
+      top_p: 0.9,
+      temperature: 0.8,
+      repetition_penalty: 1.0,
+      convert_style: false,
+      anonymization_only: false
+    });
+
+    const fullAudio = result.data?.[1];
+
+    if (!fullAudio) {
+      return response.status(502).json({
+        ok: false,
+        error: 'Seed-VC did not return full converted audio'
+      });
+    }
+
+    return response.json({
+      ok: true,
+      audio: fullAudio
+    });
+  } catch (error) {
+    return response.status(502).json({
+      ok: false,
+      error: String(error.message || error)
+    });
+  } finally {
+    await Promise.allSettled(
+      [source.path, reference.path].map(filePath =>
+        fs.promises.unlink(filePath)
+      )
+    );
+  }
 });
 
 /*
