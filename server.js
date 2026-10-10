@@ -107,7 +107,8 @@ async function chatJson(
       ...args,
       response_format: { type: 'json_object' }
     });
-  } catch {
+  } catch (error) {
+  console.error("Groq JSON mode failed:", error.message);
     result = await groq.chat.completions.create(args);
   }
 
