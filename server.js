@@ -1010,6 +1010,75 @@ app.post(
     }
   })
 );
+// ==================================================
+// D_MIGHTY_VOICE: PRIVATE RVC MODEL CONVERSION
+// ==================================================
+const RVC_SPACE = 'Luminia/rvc-beatrice-voice-conversion';
+const RVC_REPO = 'nirmaljangid8313/D_MIGHTY_VOICE';
+const RVC_BASE = 'https://huggingface.co/' + RVC_REPO + '/resolve/main/';
+let rvcModelPromise;
+
+async function downloadPrivateModel(name) {
+  const output = path.join(tempDir, 'd_mighty_' + name);
+  if (fs.existsSync(output) && fs.statSync(output).size > 1000000) return output;
+  if (!process.env.HF_TOKEN) throw new Error('HF_TOKEN is missing in Render Environment');
+  const res = await fetch(RVC_BASE + name, {
+    headers: { Authorization: 'Bearer ' + process.env.HF_TOKEN }
+  });
+  if (!res.ok || !res.body) throw new Error('Private model download failed (' + res.status + ')');
+  const tmp = output + '.downloading';
+  try {
+    const { pipeline } = await import('node:stream/promises');
+    const { Readable } = await import('node:stream');
+    await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(tmp));
+    await fs.promises.rename(tmp, output);
+    return output;
+  } catch (e) {
+    await fs.promises.unlink(tmp).catch(() => {});
+    throw e;
+  }
+}
+
+async function getPrivateRvcModelFiles() {
+  if (!rvcModelPromise) {
+    rvcModelPromise = Promise.all([
+      downloadPrivateModel('model.pth'),
+      downloadPrivateModel('model.index')
+    ]).catch(e => { rvcModelPromise = null; throw e; });
+  }
+  return rvcModelPromise;
+}
+
+app.post('/rvc-convert', upload.single('source_audio'), wrap(async (request, response) => {
+  const source = request.file;
+  if (!source) return response.status(400).json({ error: 'source_audio is required' });
+  try {
+    const [modelPath, indexPath] = await getPrivateRvcModelFiles();
+    const client = await Client.connect(RVC_SPACE);
+    const result = await client.predict('/convert', {
+      source: handle_file(source.path),
+      m_type: 'RVC v2',
+      rvc_model: handle_file(modelPath),
+      rvc_index: handle_file(indexPath),
+      beat_model: null,
+      beat_speaker: 0,
+      beat_formant: 0,
+      pitch: 0,
+      f0: 'rmvpe',
+      idx_rate: 0.75,
+      prot: 0.33
+    });
+    const item = result?.data?.[0];
+    const url = typeof item === 'string' ? item : (item?.url || item?.path);
+    if (!url) throw new Error('RVC Space returned no converted audio');
+    response.json({ ok: true, audio: item, audioUrl: url, status: result?.data?.[1] || 'Converted' });
+  } catch (e) {
+    console.error('RVC conversion error:', e?.message);
+    response.status(502).json({ ok: false, error: String(e?.message || e) });
+  } finally {
+    await fs.promises.unlink(source.path).catch(() => {});
+  }
+}));
 
 // ==================================================
 // UNKNOWN ROUTES
