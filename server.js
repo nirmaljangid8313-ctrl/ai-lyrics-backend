@@ -769,20 +769,10 @@ app.post('/generate-music', wrap(async (req, res) => {
     body.audio_config.bpm = Math.round(bpm);
   }
 
-  if (
-    Number.isFinite(duration) &&
-    duration > 0
-  ) {
-    body.audio_config.duration = Math.max(
-      10,
-      Math.min(300, Math.round(duration))
-    );
-  }
-
   let response;
   let lastError;
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 1; attempt++) {
     try {
       console.log(
         'ACE Music request attempt',
@@ -814,7 +804,7 @@ app.post('/generate-music', wrap(async (req, res) => {
       if (
         response.ok ||
         ![429, 502, 503, 504].includes(response.status) ||
-        attempt === 3
+        attempt === 1
       ) {
         break;
       }
@@ -831,7 +821,7 @@ app.post('/generate-music', wrap(async (req, res) => {
         error.message
       );
 
-      if (attempt === 3) {
+      if (attempt === 1) {
         break;
       }
     }
