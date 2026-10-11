@@ -1012,8 +1012,8 @@ app.post('/video-recommendations', wrap(async (req, res) => {
   }
 
   const count = Math.min(
-    24,
-    Math.max(8, Number(input.count || 16))
+    4,
+    Math.max(2, Number(input.count || 4))
   );
 
   const suggestions = [];
@@ -1021,11 +1021,11 @@ app.post('/video-recommendations', wrap(async (req, res) => {
 
   for (
     let batch = 0;
-    batch < Math.ceil(count / 4);
+    batch < Math.ceil(count / 2);
     batch++
   ) {
     const needed = Math.min(
-      4,
+      2,
       count - suggestions.length
     );
 
