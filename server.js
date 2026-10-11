@@ -772,7 +772,7 @@ app.post('/generate-music', wrap(async (req, res) => {
   let response;
   let lastError;
 
-  for (let attempt = 1; attempt <= 1; attempt++) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       console.log(
         'ACE Music request attempt',
@@ -804,7 +804,7 @@ app.post('/generate-music', wrap(async (req, res) => {
       if (
         response.ok ||
         ![429, 502, 503, 504].includes(response.status) ||
-        attempt === 1
+        attempt === 2
       ) {
         break;
       }
@@ -821,7 +821,7 @@ app.post('/generate-music', wrap(async (req, res) => {
         error.message
       );
 
-      if (attempt === 1) {
+      if (attempt === 2) {
         break;
       }
     }
