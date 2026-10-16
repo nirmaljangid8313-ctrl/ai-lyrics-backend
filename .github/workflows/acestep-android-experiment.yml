@@ -46,9 +46,16 @@ jobs:
       - name: Package OpenMP runtime for Android
         shell: bash
         run: |
-          omp=$(find "${{ steps.ndk.outputs.path }}" -type f -name libomp.so -print -quit)
-          test -n "$omp" || { echo 'Android OpenMP runtime not found'; exit 2; }
+          omp=''
+          while IFS= read -r candidate; do
+            if file "$candidate" | grep -qi 'ARM aarch64'; then
+              omp="$candidate"
+              break
+            fi
+          done < <(find "${{ steps.ndk.outputs.path }}" -type f -name libomp.so)
+          test -n "$omp" || { echo 'ARM64 Android OpenMP runtime not found'; exit 2; }
           cp "$omp" engine/build-android/libomp.so
+          file engine/build-android/libomp.so
           ls -lh engine/build-android/libomp.so
       - name: Verify ARM executable
         shell: bash
