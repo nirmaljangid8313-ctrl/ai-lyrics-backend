@@ -792,8 +792,9 @@ app.post('/generate-music', wrap(async (req, res) => {
 
   let response;
   let lastError;
+  // One bounded extra retry helps with intermittent provider gateway 504s.
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       console.log(
         'ACE Music request attempt',
@@ -811,7 +812,7 @@ app.post('/generate-music', wrap(async (req, res) => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(180000)
+          signal: AbortSignal.timeout(90000)
         }
       );
 
@@ -826,7 +827,7 @@ app.post('/generate-music', wrap(async (req, res) => {
         response.ok ||
         // Avoid replaying timed-out or rate-limited music requests.
         ![502, 503, 504].includes(response.status) ||
-        attempt === 2
+        attempt === 3
       ) {
         break;
       }
@@ -835,8 +836,9 @@ app.post('/generate-music', wrap(async (req, res) => {
       await response.arrayBuffer().catch(() => {});
       response = undefined;
       if (retryStatus === 504) {
-        console.log('ACE Music 504; waiting 30 seconds before retry.');
-        await sleep(30000);
+        const waitMs = attempt === 1 ? 30000 : 45000;
+        console.log('ACE Music 504; cooling down ' + (waitMs / 1000) + ' seconds before retry.');
+        await sleep(waitMs);
         continue;
       }
     } catch (error) {
@@ -849,7 +851,7 @@ app.post('/generate-music', wrap(async (req, res) => {
         error.message
       );
 
-      if (attempt === 2) {
+      if (attempt === 3) {
         break;
       }
     }
