@@ -769,6 +769,12 @@ app.post('/generate-music', wrap(async (req, res) => {
     body.audio_config.bpm = Math.round(bpm);
   }
 
+  // The Android app sends its lyric-based target length in seconds.
+  // Forward valid lengths instead of using the provider's default.
+  if (Number.isFinite(duration) && duration >= 10 && duration <= 600) {
+    body.audio_config.duration = Math.round(duration);
+  }
+
   let response;
   let lastError;
 
@@ -803,7 +809,8 @@ app.post('/generate-music', wrap(async (req, res) => {
 
       if (
         response.ok ||
-        ![429, 502, 503, 504].includes(response.status) ||
+        // Avoid replaying timed-out or rate-limited music requests.
+        ![502, 503].includes(response.status) ||
         attempt === 2
       ) {
         break;
