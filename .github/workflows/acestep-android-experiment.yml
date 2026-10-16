@@ -1,0 +1,55 @@
+name: ACE-Step Android ARM64 feasibility build
+on:
+  push:
+    branches:
+      - experiment/android-acestep-20261016
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  arm64:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Verify installed Android NDK
+        id: ndk
+        shell: bash
+        run: |
+          set -euo pipefail
+          for d in "${ANDROID_NDK_HOME:-}" "${ANDROID_NDK_ROOT:-}" ${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}/ndk/*; do
+            if [ -n "$d" ] && [ -f "$d/build/cmake/android.toolchain.cmake" ]; then
+              echo "path=$d" >> "$GITHUB_OUTPUT"
+              echo "Found preinstalled NDK at $d"
+              exit 0
+            fi
+          done
+          echo "No NDK preinstalled on runner"
+          exit 2
+      - name: Fetch portable ACE-Step source
+        shell: bash
+        run: |
+          git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/ServeurpersoCom/acestep.cpp.git engine
+          git -C engine log -1 --oneline
+      - name: Configure ARM64 CPU-only build
+        shell: bash
+        run: |
+          cmake -S engine -B engine/build-android \
+            -DCMAKE_TOOLCHAIN_FILE="${{ steps.ndk.outputs.path }}/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28 \
+            -DGGML_VULKAN=OFF -DGGML_CPU=ON -DGGML_NATIVE=OFF \
+            -DGGML_BACKEND_DL=OFF -DGGML_BUILD_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+      - name: Compile ACE-Step synthesizer
+        shell: bash
+        run: cmake --build engine/build-android --target ace-synth --parallel 4
+      - name: Verify ARM executable
+        shell: bash
+        run: |
+          file engine/build-android/ace-synth
+          ls -lh engine/build-android/ace-synth
+      - name: Store executable for independent Android test
+        uses: actions/upload-artifact@v4
+        with:
+          name: acestep-arm64-cpu-experimental
+          path: engine/build-android/ace-synth
+          retention-days: 3
