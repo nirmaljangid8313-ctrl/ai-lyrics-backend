@@ -825,14 +825,20 @@ app.post('/generate-music', wrap(async (req, res) => {
       if (
         response.ok ||
         // Avoid replaying timed-out or rate-limited music requests.
-        ![502, 503].includes(response.status) ||
+        ![502, 503, 504].includes(response.status) ||
         attempt === 2
       ) {
         break;
       }
 
+      const retryStatus = response.status;
       await response.arrayBuffer().catch(() => {});
       response = undefined;
+      if (retryStatus === 504) {
+        console.log('ACE Music 504; waiting 30 seconds before retry.');
+        await sleep(30000);
+        continue;
+      }
     } catch (error) {
       lastError = error;
       response = undefined;
