@@ -43,6 +43,13 @@ jobs:
       - name: Compile ACE-Step synthesizer
         shell: bash
         run: cmake --build engine/build-android --target ace-synth --parallel 4
+      - name: Package OpenMP runtime for Android
+        shell: bash
+        run: |
+          omp=$(find "${{ steps.ndk.outputs.path }}" -type f -name libomp.so -print -quit)
+          test -n "$omp" || { echo 'Android OpenMP runtime not found'; exit 2; }
+          cp "$omp" engine/build-android/libomp.so
+          ls -lh engine/build-android/libomp.so
       - name: Verify ARM executable
         shell: bash
         run: |
@@ -52,5 +59,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: acestep-arm64-cpu-experimental
-          path: engine/build-android/ace-synth
+          path: |
+            engine/build-android/ace-synth
+            engine/build-android/libomp.so
           retention-days: 3
