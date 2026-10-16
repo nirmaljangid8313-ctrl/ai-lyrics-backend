@@ -531,6 +531,8 @@ async function extractAceAudio(response) {
   let eventCount = 0;
   let lastEventType = '';
   let firstResponseText = '';
+  let directJsonText = '';
+  let directJsonMode = null;
 
   function processPayload(payload) {
     if (!payload || typeof payload !== 'object') {
@@ -592,6 +594,19 @@ async function extractAceAudio(response) {
             1200 - firstResponseText.length
           );
         }
+
+        // Support a full JSON response if the provider ignores stream:true.
+        // The firstResponseText field is only a short log preview.
+        if (directJsonMode === null) {
+          const firstChar = chunk.trimStart()[0];
+          if (firstChar) directJsonMode = firstChar === '{';
+        }
+        if (directJsonMode) {
+          directJsonText += chunk;
+          if (directJsonText.length > 32 * 1024 * 1024) {
+            throw new Error('ACE Music JSON response exceeded safe size.');
+          }
+        }
       }
 
       const lines = buffer.split(/\r?\n/);
@@ -616,7 +631,7 @@ async function extractAceAudio(response) {
   if (!audioUrl && eventCount === 0) {
     try {
       const direct = JSON.parse(
-        firstResponseText.trim()
+        directJsonText.trim()
       );
 
       const result = parseAceJsonAudio(direct);
