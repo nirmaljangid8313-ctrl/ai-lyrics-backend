@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import Groq from 'groq-sdk';
+import { toFile } from 'groq-sdk/uploads';
 
 const app = express();
 
@@ -973,7 +974,7 @@ app.post(
 
       const transcription =
         await groq.audio.transcriptions.create({
-          file: fs.createReadStream(file.path),
+          file: await toFile(fs.createReadStream(file.path), file.originalname || 'uploaded_audio.mp3'),
           model: WHISPER_MODEL,
           response_format: 'json'
         });
