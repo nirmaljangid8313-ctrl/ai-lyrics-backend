@@ -7,6 +7,13 @@ import os from 'node:os';
 import path from 'node:path';
 import Groq from 'groq-sdk';
 import { toFile } from 'groq-sdk/uploads';
+import {
+  STORYBOARD_SCENE_COUNT,
+  storyboardDurationSeconds,
+  storyboardSlot,
+  storyboardLyric,
+  normalizedStoryboardScene
+} from './storyboardTimeline.js';
 
 const app = express();
 
@@ -1239,15 +1246,24 @@ app.post('/storyboard', wrap(async (req, res) => {
     'CINEMATIC_BOLLYWOOD';
 
   const scenes = [];
+  const durationSeconds = storyboardDurationSeconds(input, lyrics);
 
   for (let batch = 0; batch < 3; batch++) {
+    const targets = Array.from({ length: 4 }, (_, local) => {
+      const index = batch * 4 + local;
+      return {
+        ...storyboardSlot(durationSeconds, index, STORYBOARD_SCENE_COUNT),
+        lyric: storyboardLyric(lyrics, index, STORYBOARD_SCENE_COUNT)
+      };
+    });
     const json = await chatJson(
       'Original music-video storyboard writer. Return JSON only.',
       `Mode: ${mode}.
 ${modeGuide(mode)}
 Concept: ${JSON.stringify(input.concept || {}).slice(0, 4000)}
-Lyrics: ${lyrics.slice(0, 9500)}
-Batch: ${batch + 1}
+Entire song lyrics: ${lyrics.slice(0, 9500)}
+Batch: ${batch + 1} of 3, spanning ${targets[0].startSeconds} to ${targets[3].endSeconds} seconds of a ${durationSeconds}-second song.
+Relevant timed lyric anchors: ${JSON.stringify(targets)}
 Return 4 sequential storyboard scenes as:
 {"scenes":[{
 "startSeconds":0,
@@ -1265,14 +1281,20 @@ Return 4 sequential storyboard scenes as:
 "transition":"...",
 "prompt":"..."
 }]}
-Keep character continuity and scene times progressing, starting near ${batch * 20} seconds.`,
+Keep character continuity across all batches. Follow the exact four scene time windows and their respective lyric anchors above; do not restart at the beginning of the song.`,
       0.45
     );
 
-    scenes.push(...array(json.scenes));
+    const suggestions = array(json.scenes);
+    for (let local = 0; local < 4; local++) {
+      scenes.push(normalizedStoryboardScene(
+        suggestions[local], lyrics, durationSeconds,
+        batch * 4 + local, STORYBOARD_SCENE_COUNT
+      ));
+    }
   }
 
-  res.json({ scenes });
+  res.json({ scenes, durationSeconds });
 }));
 
 // =====================================================
