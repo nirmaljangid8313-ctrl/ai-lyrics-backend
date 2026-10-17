@@ -1114,9 +1114,73 @@ Concise details, not placeholders.`,
     suggestions.push(...array(json.suggestions));
   }
 
+  // The AI occasionally returns fewer distinct alternatives than requested.
+  // Complete the shortlist locally without spending further cloud credits.
+  const chosenMode = ['FULL_ANIME', 'ANIME_BOLLYWOOD_FUSION', 'CINEMATIC_BOLLYWOOD']
+    .includes(input.videoMode) ? input.videoMode : 'CINEMATIC_BOLLYWOOD';
+  const finalBest = best || suggestions[0] || null;
+  const unique = [];
+  const usedTitles = new Set([clean(finalBest?.title).toLowerCase()].filter(Boolean));
+  for (const option of suggestions) {
+    const title = clean(option?.title).toLowerCase();
+    if (title && !usedTitles.has(title)) {
+      usedTitles.add(title);
+      unique.push(option);
+    }
+  }
+  const presets = [
+    {
+      title: 'Skyline Rooftop Performance',
+      concept: 'An original rooftop performance growing from quiet dusk to luminous city skyline.',
+      story: 'Solo opening; reflective verses; rooftop chorus; intimate closing shot.',
+      locations: ['Original skyline rooftop', 'Stairwell'],
+      colorPalette: 'Midnight blue and amber',
+      lighting: 'Soft blue-hour glow',
+      cameraStyle: 'Slow crane reveal and steady close-ups'
+    },
+    {
+      title: 'Rainlit Street Journey',
+      concept: 'A musical journey through rain-reflected neon streets and cinematic city scenery.',
+      story: 'Walking introduction; unfolding street scenes; energized chorus; calm finale.',
+      locations: ['Original rainlit avenue', 'Covered arcade'],
+      colorPalette: 'Teal and violet',
+      lighting: 'Reflected neon and soft rain',
+      cameraStyle: 'Steadicam tracking and gentle orbit'
+    },
+    {
+      title: 'Golden Hour Riverside Festival',
+      concept: 'A hopeful riverside performance that expands into an original festival finale.',
+      story: 'Gentle riverside opening; growing ensemble; festival chorus; sunset close.',
+      locations: ['Original riverside promenade', 'Festival square'],
+      colorPalette: 'Warm coral and gold',
+      lighting: 'Golden-hour backlighting',
+      cameraStyle: 'Wide establishing view into sweeping close-ups'
+    }
+  ];
+  for (const preset of presets) {
+    if (unique.length >= Math.min(count, 3)) break;
+    if (usedTitles.has(preset.title.toLowerCase())) continue;
+    unique.push({
+      ...(finalBest || {}),
+      ...preset,
+      score: 0,
+      category: 'Free built-in alternative',
+      why: 'Distinct fallback concept; no additional AI request or paid credits.',
+      mode: chosenMode,
+      characters: 'Consistent original lead performer and optional supporting cast',
+      costumes: 'Original coordinated outfits maintained across shots',
+      choreography: 'Natural movements that grow with each chorus',
+      pacing: 'Quiet intro, emotional build, strong chorus, gentle outro',
+      transitions: 'Soft match cuts timed to musical phrases',
+      lipSyncStrategy: 'Match facial movement to vocals where actual lip-sync is available',
+      beatSyncStrategy: 'Align scene changes with downbeats and musical accents',
+      storyboardDirection: preset.story
+    });
+    usedTitles.add(preset.title.toLowerCase());
+  }
   res.json({
-    best: best || suggestions[0] || null,
-    suggestions: suggestions.slice(0, count),
+    best: finalBest || unique[0] || null,
+    suggestions: unique.slice(0, count),
     hasMore: true
   });
 }));
