@@ -35,6 +35,12 @@ const groq = process.env.GROQ_API_KEY
   : null;
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Avoid repeating the provider's observed ~60s gateway timeouts for minutes.
+const ACE_MAX_ATTEMPTS = 2;
+const ACE_GATEWAY_RETRY_DELAY_MS = 15000;
+const ACE_PROVIDER_COOLDOWN_MS = 3 * 60 * 1000;
+let aceProviderBusyUntil = 0;
 const clean = value => String(value ?? '').trim();
 const array = value => Array.isArray(value) ? value : [];
 const wrap = fn => (req, res, next) =>
@@ -707,6 +713,16 @@ app.post('/generate-music', wrap(async (req, res) => {
     });
   }
 
+  const cooldownSeconds = Math.ceil((aceProviderBusyUntil - Date.now()) / 1000);
+  if (cooldownSeconds > 0) {
+    return res.status(503).set('Retry-After', String(cooldownSeconds)).json({
+      error: 'ACE Music provider is temporarily busy. Your existing music is safe; please retry later or use the free on-device instrumental backup.',
+      providerStatus: 504,
+      retryable: true,
+      retryAfterSeconds: cooldownSeconds
+    });
+  }
+
   const input = req.body || {};
   const lyrics = clean(input.lyrics);
   const language = clean(input.language) || 'English';
@@ -792,9 +808,8 @@ app.post('/generate-music', wrap(async (req, res) => {
 
   let response;
   let lastError;
-  // One bounded extra retry helps with intermittent provider gateway 504s.
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  // One retry rather than three long gateway requests.
+  for (let attempt = 1; attempt <= ACE_MAX_ATTEMPTS; attempt++) {
     try {
       console.log(
         'ACE Music request attempt',
@@ -827,7 +842,7 @@ app.post('/generate-music', wrap(async (req, res) => {
         response.ok ||
         // Avoid replaying timed-out or rate-limited music requests.
         ![502, 503, 504].includes(response.status) ||
-        attempt === 3
+        attempt === ACE_MAX_ATTEMPTS
       ) {
         break;
       }
@@ -836,9 +851,8 @@ app.post('/generate-music', wrap(async (req, res) => {
       await response.arrayBuffer().catch(() => {});
       response = undefined;
       if (retryStatus === 504) {
-        const waitMs = attempt === 1 ? 30000 : 45000;
-        console.log('ACE Music 504; cooling down ' + (waitMs / 1000) + ' seconds before retry.');
-        await sleep(waitMs);
+        console.log('ACE Music 504; waiting 15 seconds before final attempt.');
+        await sleep(ACE_GATEWAY_RETRY_DELAY_MS);
         continue;
       }
     } catch (error) {
@@ -851,7 +865,7 @@ app.post('/generate-music', wrap(async (req, res) => {
         error.message
       );
 
-      if (attempt === 3) {
+      if (attempt === ACE_MAX_ATTEMPTS) {
         break;
       }
     }
@@ -871,6 +885,11 @@ app.post('/generate-music', wrap(async (req, res) => {
   if (!response.ok) {
     const providerStatus = response.status;
 
+    if ([429, 502, 503, 504].includes(providerStatus)) {
+      aceProviderBusyUntil = Date.now() + ACE_PROVIDER_COOLDOWN_MS;
+      console.warn('ACE Music provider temporarily unavailable; cooldown started.');
+    }
+
     const raw = await response.text().catch(() => '');
 
     let message = '';
@@ -884,10 +903,15 @@ app.post('/generate-music', wrap(async (req, res) => {
       );
     } catch {}
 
+    // Do not pass HTML gateway pages back to the phone or flood logs.
+    if (/^\s*</.test(raw) && [502, 503, 504].includes(providerStatus)) {
+      message = 'ACE Music gateway is temporarily unavailable';
+    }
+
     console.error(
       'ACE Music provider failure',
       providerStatus,
-      message || raw.slice(0, 300)
+      message || raw.slice(0, 180).replace(/\s+/g, ' ')
     );
 
     return res
@@ -901,9 +925,10 @@ app.post('/generate-music', wrap(async (req, res) => {
           message ||
           `ACE Music returned HTTP ${providerStatus}.`,
         providerStatus,
-        retryable: [429, 502, 503, 504].includes(
-          providerStatus
-        )
+        retryable: [429, 502, 503, 504].includes(providerStatus),
+        retryAfterSeconds: [429, 502, 503, 504].includes(providerStatus)
+          ? Math.ceil(ACE_PROVIDER_COOLDOWN_MS / 1000)
+          : null
       });
   }
 
@@ -912,6 +937,7 @@ app.post('/generate-music', wrap(async (req, res) => {
   );
 
   const audio = await extractAceAudio(response);
+  aceProviderBusyUntil = 0;
 
   res.json({
     success: true,
